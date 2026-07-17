@@ -92,7 +92,10 @@ function Sidebar({ isOpen, onClose }) {
           onClick={onClose}
         />
       )}
-      <aside className={`sidebar ${isOpen ? "sidebar_open" : ""}`}>
+      <aside
+        className={`sidebar ${isOpen ? "sidebar_open" : ""}`}
+        onMouseLeave={onClose}
+      >
         <div className="sidebar_top">
           <div className="sidebar_header">
             <Logo />

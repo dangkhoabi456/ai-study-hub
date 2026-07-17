@@ -66,6 +66,9 @@ async function getAllowedDocument(documentId, userId) {
 }
 
 async function increaseChatUsage(userId) {
+  if (userId === "guest") {
+    return;
+  }
   const today = new Date().toISOString().slice(0, 10);
 
   const { data: existing, error: selectError } = await supabase

@@ -16,6 +16,7 @@ const {
     updateLibrary,
     getLibrary,
     deleteLibrary,
+    suggestTagsForFile,
 } = require("../controllers/documentController");
 
 const router = express.Router();
@@ -61,6 +62,13 @@ router.post(
     authMiddleware,
     upload.array("files", 10),
     uploadDocuments
+);
+
+router.post(
+    "/suggest-tags",
+    authMiddleware,
+    upload.single("file"),
+    suggestTagsForFile
 );
 
 router.get("/libraries", authMiddleware, listMyLibraries);

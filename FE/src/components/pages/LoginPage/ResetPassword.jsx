@@ -43,7 +43,7 @@ function ResetPassword() {
     setErrorMsg("");
 
     if (!formData.otp.trim()) {
-      return setErrorMsg("Vui lòng nhập OTP.");
+      return setErrorMsg("Please enter OTP.");
     }
 
     try {
@@ -56,7 +56,7 @@ function ResetPassword() {
 
       setResetToken(response.data.data.resetToken);
     } catch (error) {
-      setErrorMsg(error.response?.data?.message || "Không thể xác minh OTP.");
+      setErrorMsg(error.response?.data?.message || "Failed to verify OTP.");
     } finally {
       setLoading(false);
     }
@@ -67,11 +67,11 @@ function ResetPassword() {
     setErrorMsg("");
 
     if (!formData.newPassword) {
-      return setErrorMsg("Vui lòng nhập mật khẩu mới.");
+      return setErrorMsg("Please enter new password.");
     }
 
     if (formData.newPassword !== formData.confirmPassword) {
-      return setErrorMsg("Mật khẩu xác nhận không khớp.");
+      return setErrorMsg("Passwords do not match.");
     }
 
     try {
@@ -82,10 +82,10 @@ function ResetPassword() {
         resetToken,
         newPassword: formData.newPassword,
       });
-      alert("Đổi mật khẩu thành công. Vui lòng đăng nhập lại.");
+      alert("Password changed successfully. Please log in again.");
       navigate("/login", { replace: true });
     } catch (error) {
-      setErrorMsg(error.response?.data?.message || "Không thể đổi mật khẩu");
+      setErrorMsg(error.response?.data?.message || "Failed to change password.");
     } finally {
       setLoading(false);
     }
@@ -97,16 +97,16 @@ function ResetPassword() {
         className="login_form"
         onSubmit={isOtpVerified ? handleResetPassword : handleVerifyOTP}
       >
-        <p className="login_title">Đặt lại mật khẩu</p>
+        <p className="login_title">Reset Password</p>
 
         <p
           className="login_message"
           style={{ textAlign: "left", marginBottom: "15px" }}
         >
           {isOtpVerified ? (
-            <>OTP đã được xác minh. Hãy nhập mật khẩu mới cho <b>{email}</b>.</>
+            <>OTP verified. Please enter a new password for <b>{email}</b>.</>
           ) : (
-            <>Nhập mã OTP gồm 6 chữ số đã gửi tới <b>{email}</b>.</>
+            <>Enter the 6-digit OTP code sent to <b>{email}</b>.</>
           )}
         </p>
         <div className="login_flex">
@@ -124,7 +124,7 @@ function ResetPassword() {
               <FormInput
                 type="password"
                 name="newPassword"
-                label="Mật khẩu mới"
+                label="New Password"
                 value={formData.newPassword}
                 onChange={handleChange}
                 required
@@ -132,7 +132,7 @@ function ResetPassword() {
               <FormInput
                 type="password"
                 name="confirmPassword"
-                label="Xác nhận mật khẩu"
+                label="Confirm Password"
                 value={formData.confirmPassword}
                 onChange={handleChange}
                 required
@@ -145,8 +145,8 @@ function ResetPassword() {
             className="login_message"
             style={{ fontSize: "13px", color: "var(--text-secondary)", textAlign: "left" }}
           >
-            Mật khẩu mới cần có ít nhất 8 ký tự, bao gồm chữ thường, số và ký tự
-            đặc biệt.
+            New password must be at least 8 characters, including lowercase letters, numbers, and special
+            characters.
           </p>
         )}
         {errorMsg && (
@@ -156,10 +156,10 @@ function ResetPassword() {
         )}
         <button className="login_submit" type="submit" disabled={loading}>
           {loading
-            ? "Đang xử lý..."
+            ? "Processing..."
             : isOtpVerified
-              ? "Đổi mật khẩu"
-              : "Xác minh OTP"}
+              ? "Change Password"
+              : "Verify OTP"}
         </button>
         <p className="login_message" style={{ marginTop: "20px" }}>
           <span
@@ -170,7 +170,7 @@ function ResetPassword() {
               textDecoration: "underline",
             }}
           >
-            Quay lại đăng nhập
+            Back to login
           </span>
         </p>
       </form>

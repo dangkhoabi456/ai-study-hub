@@ -268,40 +268,37 @@ exports.uploadDocuments = async (req, res) => {
       }
     }
 
-    // 1. Trích xuất text và chạy kiểm tra nhạy cảm + tag validation cho tất cả các file trước
-    const processedFilesData = [];
+    // 1. Trích xuất text và chạy kiểm tra nhạy cảm + tag validation song song cho tất cả các file
+    let processedFilesData = [];
+    try {
+      processedFilesData = await Promise.all(
+        files.map(async (file) => {
+          const extractedText = await extractTextFromFile(file);
 
-    for (const file of files) {
-      const extractedText = await extractTextFromFile(file);
+          // Chạy song song kiểm tra nhạy cảm và kiểm duyệt tag để giảm thời gian xử lý (tối ưu hóa hiệu năng)
+          const [sensitivity, tagValidationResult] = await Promise.all([
+            checkSensitiveContent(extractedText),
+            validateTagsAndContent(extractedText, file.originalname, userTags),
+          ]);
 
-      // Kiểm tra ngôn từ nhạy cảm
-      const sensitivity = await checkSensitiveContent(extractedText);
-
-      // Chạy AI validation cho hashtag do người dùng nhập vào
-      const tagValidationResult = await validateTagsAndContent(extractedText, file.originalname, userTags);
-
-      if (!tagValidationResult.isValid) {
-        return res.status(400).json({
-          status: "error",
-          code: "TAG_VALIDATION_FAILED",
-          message: `Hashtag kiểm duyệt không hợp lệ cho tài liệu "${file.originalname}".`,
-          tagValidations: tagValidationResult.tagValidations,
-          aiRecommendedTags: tagValidationResult.aiRecommendedTags
-        });
-      }
-
-      processedFilesData.push({
-        file,
-        extractedText,
-        sensitivity
-      });
+          return {
+            file,
+            extractedText,
+            sensitivity,
+            tagValidationResult,
+          };
+        })
+      );
+    } catch (err) {
+      console.error("Lỗi song song AI:", err);
+      return res.status(500).json({ status: "error", message: "Đã xảy ra lỗi khi kiểm duyệt tài liệu bằng AI." });
     }
 
-    // 2. Nếu tất cả đều qua kiểm định, tiến hành upload và lưu database
+    // 2. Tiến hành upload và lưu database
     const uploadedDocuments = [];
 
     for (const processedData of processedFilesData) {
-      const { file, extractedText, sensitivity } = processedData;
+      const { file, extractedText, sensitivity, tagValidationResult } = processedData;
 
       const safeFileName = sanitizeFileName(file.originalname);
       const storagePath = `${userID}/${Date.now()}-${crypto.randomUUID()}-${safeFileName}`;
@@ -365,9 +362,24 @@ exports.uploadDocuments = async (req, res) => {
       }
 
       // Lưu tags vào DB
-      // Loại bỏ các tag trùng lặp và làm sạch
-      const uniqueTags = [...new Set(userTags.map(t => t.trim().toLowerCase().replace("#", "")))];
-      console.log("[uploadDocuments] final user tag names:", uniqueTags);
+      // Lấy các tag hợp lệ hoặc tag thay thế được AI gợi ý
+      const correctedUserTags = (tagValidationResult.tagValidations || []).map(v => {
+        return v.recommendedReplacement || v.tag;
+      });
+
+      // Lấy 3 tag AI tự động gợi ý cho tài liệu
+      const aiTags = tagValidationResult.aiRecommendedTags || [];
+
+      // Gộp lại, lọc trùng và làm sạch
+      const allFileTags = [...correctedUserTags, ...aiTags];
+      const uniqueTags = [
+        ...new Set(
+          allFileTags
+            .map(t => String(t || "").trim().toLowerCase().replace("#", ""))
+            .filter(Boolean)
+        )
+      ];
+      console.log(`[uploadDocuments] final tag names for ${file.originalname}:`, uniqueTags);
 
 
       // Gọi hàm xử lý AI (embedding và chunking)
@@ -412,21 +424,17 @@ exports.uploadDocuments = async (req, res) => {
         }
       }
 
-      const { count: finalTagCount, error: finalTagCountError } = await supabase
+      // Lấy danh sách tags dạng objects để trả về kèm document cho Frontend hiển thị tức thì
+      const { data: finalDocTags } = await supabase
         .from("document_tags")
-        .select("document_id", { count: "exact", head: true })
+        .select("tags ( name )")
         .eq("document_id", document.id);
 
-      if (finalTagCountError) {
-        throw finalTagCountError;
-      }
-
-      console.log("[uploadDocuments] tags after insert:", {
-        documentId: document.id,
-        count: finalTagCount,
+      uploadedDocuments.push({
+        ...document,
+        status: aiResult.status,
+        document_tags: finalDocTags || []
       });
-
-      uploadedDocuments.push({ ...document, status: aiResult.status });
     }
 
     return res.status(201).json({ status: "success", data: uploadedDocuments });
@@ -907,5 +915,25 @@ exports.deleteLibrary = async (req, res) => {
       message: "Không thể xóa thư viện.",
       error: error.message,
     });
+  }
+};
+
+exports.suggestTagsForFile = async (req, res) => {
+  try {
+    const file = req.file;
+    if (!file) {
+      return res.status(400).json({ status: "error", message: "No file uploaded." });
+    }
+
+    const extractedText = await extractTextFromFile(file);
+    const tagValidationResult = await validateTagsAndContent(extractedText, file.originalname, []);
+
+    return res.status(200).json({
+      status: "success",
+      tags: tagValidationResult.aiRecommendedTags || []
+    });
+  } catch (error) {
+    console.error("Lỗi suggestTagsForFile:", error);
+    return res.status(500).json({ status: "error", message: "Failed to generate suggested tags." });
   }
 };

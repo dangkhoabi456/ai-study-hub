@@ -26,7 +26,7 @@ import {
   generateWorkspaceDocumentFlashcards,
   createWorkspaceDiscussionTopic,
 } from "../../../utils/workspaceApi";
-import { uploadDocuments } from "../../../utils/documentApi";
+import { deleteDocument, uploadDocuments } from "../../../utils/documentApi";
 import { getStoredUser as getAuthStoredUser } from "../../../utils/authToken.js";
 import "./WorkSpacePage.css";
 import "../../../assets/icons/themify-icons-font/themify-icons/themify-icons.css";
@@ -232,13 +232,12 @@ function WorkSpacePage() {
   const [editingTopicField, setEditingTopicField] = useState(null);
   const [topicContent, setTopicContent] = useState("");
   const [newTopicDescription, setNewTopicDescription] = useState("");
-const [newTopicType, setNewTopicType] = useState("Question");
-const [newTopicStatus, setNewTopicStatus] = useState("Open");
 const [newTopicPriority, setNewTopicPriority] = useState("Normal");
 const [newTopicDateMode, setNewTopicDateMode] = useState("none");
 const [newTopicStartDate, setNewTopicStartDate] = useState("");
 const [newTopicEndDate, setNewTopicEndDate] = useState("");
   const [topicCommentInput, setTopicCommentInput] = useState("");
+  const [commentComposerMenu, setCommentComposerMenu] = useState(null);
 const [topicSubtaskInput, setTopicSubtaskInput] = useState("");
 const [isSubtaskEditing, setIsSubtaskEditing] = useState(false);
 const [subtaskPriority, setSubtaskPriority] = useState("");
@@ -343,6 +342,7 @@ const [isSubtaskPriorityOpen, setIsSubtaskPriorityOpen] = useState(false);
   const [workspaceDocuments, setWorkspaceDocuments] = useState([]);
   const [workspaceUploadFiles, setWorkspaceUploadFiles] = useState([]);
   const [workspaceDocumentStatus, setWorkspaceDocumentStatus] = useState("");
+  const [deletingWorkspaceDocumentId, setDeletingWorkspaceDocumentId] = useState("");
   const [isUploadingWorkspaceDocuments, setIsUploadingWorkspaceDocuments] =
     useState(false);
   const [selectedStudyDocumentId, setSelectedStudyDocumentId] = useState("");
@@ -918,8 +918,8 @@ const workspaceStorageUsedBytes = discussionStorageUsedBytes;
       const createdTopic = await createWorkspaceDiscussionTopic(workspaceId, {
         title: topicTitle.trim(),
         content: newTopicDescription.trim(),
-        topicType: newTopicType,
-        status: newTopicStatus,
+        topicType: "Question",
+        status: "In progress",
         priority: newTopicPriority,
         dateMode: newTopicDateMode,
         startDate: newTopicDateMode === "deadline" ? newTopicStartDate : "",
@@ -941,8 +941,6 @@ const workspaceStorageUsedBytes = discussionStorageUsedBytes;
       setTopicContent(createdTopic.content || "");
 
       setNewTopicDescription("");
-      setNewTopicType("Question");
-      setNewTopicStatus("Open");
       setNewTopicPriority("Normal");
       setNewTopicDateMode("none");
       setNewTopicStartDate("");
@@ -1010,6 +1008,14 @@ async function handleDeleteTopicFile(fileId) {
 
     try {
       await deleteWorkspaceDiscussionTopic(workspaceId, selectedTopic.id);
+      createAppNotification({
+        category: "discussion",
+        action: "topicDeleted",
+        title: "Topic deleted",
+        message: `Topic "${selectedTopic.title}" was deleted.`,
+        icon: "ti-trash",
+        link: `/dashboard/workspaces/${workspaceId}`,
+      });
       setDiscussionTopics((currentTopics) =>
         currentTopics.filter((topic) => topic.id !== selectedTopic.id),
       );
@@ -1021,11 +1027,11 @@ async function handleDeleteTopicFile(fileId) {
     }
   }
 
-  async function handleTopicFileChange(e) {
+  async function uploadTopicFiles(e, { fromChat = false } = {}) {
     const selectedFiles = Array.from(e.target.files);
 
     if (selectedFiles.length === 0 || !selectedTopic) return;
-    if (!requireTopicPermission("upload topic files")) {
+    if (!fromChat && !requireTopicPermission("upload topic files")) {
       e.target.value = "";
       return;
     }
@@ -1064,6 +1070,7 @@ if (nextStorageUsed > WORKSPACE_STORAGE_LIMIT_BYTES) {
             fileUrl: document.fileUrl || document.file_url,
             fileSizeBytes: document.fileSizeBytes || document.file_size_bytes || 0,
             mimeType: document.mimeType || "",
+            source: fromChat ? "chat" : "attachment",
           }),
         ),
       );
@@ -1076,20 +1083,20 @@ if (nextStorageUsed > WORKSPACE_STORAGE_LIMIT_BYTES) {
         ),
       );
 
-      createAppNotification({
-        category: "file",
-        action: "uploaded",
-        title: "File uploaded",
-        message: `${profileName} uploaded ${attachments.length} file(s) to ${selectedTopic.title}.`,
-        icon: "ti-folder",
-        link: `/dashboard/workspaces/${workspaceId}`,
-      });
     } catch (error) {
       console.error("Cannot upload discussion attachments:", error);
       alert(error.response?.data?.message || "Could not upload discussion files.");
     } finally {
       e.target.value = "";
     }
+  }
+
+  function handleTopicFileChange(event) {
+    return uploadTopicFiles(event);
+  }
+
+  function handleTopicChatFileChange(event) {
+    return uploadTopicFiles(event, { fromChat: true });
   }
 
   async function handleSaveTopicNote(e) {
@@ -1237,6 +1244,16 @@ if (nextStorageUsed > WORKSPACE_STORAGE_LIMIT_BYTES) {
       console.error("Cannot add discussion comment:", error);
       alert(error.response?.data?.message || "Could not add comment.");
     }
+  }
+
+  function handleInsertTopicMention(name) {
+    const mention = name === "everyone" ? "@everyone" : `@${name}`;
+
+    setTopicCommentInput((currentValue) => {
+      const separator = currentValue && !currentValue.endsWith(" ") ? " " : "";
+      return `${currentValue}${separator}${mention} `;
+    });
+    setCommentComposerMenu(null);
   }
 
   async function handleAddTopicSubtask(e) {
@@ -1629,10 +1646,22 @@ function getSubtaskPriorityIcon(priority) {
     }
 
     try {
+      const previousName = workspace?.name || "Workspace";
       await updateWorkspace(workspaceId, { name: trimmedName });
       setWorkspace((current) => ({ ...current, name: trimmedName }));
       setWorkspaceNameInput(trimmedName);
       setWorkspaceSettingMessage("Workspace name updated successfully.");
+
+      if (previousName !== trimmedName) {
+        createAppNotification({
+          category: "workspace",
+          action: "nameChanged",
+          title: "Workspace name changed",
+          message: `"${previousName}" was renamed to "${trimmedName}".`,
+          icon: "ti-pencil-alt",
+          link: `/dashboard/workspaces/${workspaceId}`,
+        });
+      }
     } catch (err) {
       console.error("Failed to update workspace name:", err);
       setWorkspaceSettingMessage("Failed to update workspace name on server.");
@@ -1649,7 +1678,17 @@ function getSubtaskPriorityIcon(priority) {
     if (!isConfirmed) return;
 
     try {
+      const deletedWorkspaceName = workspace?.name || "Workspace";
       await deleteWorkspace(workspaceId);
+
+      createAppNotification({
+        category: "workspace",
+        action: "deleted",
+        title: "Workspace deleted",
+        message: `Workspace "${deletedWorkspaceName}" was deleted.`,
+        icon: "ti-trash",
+        link: "/dashboard/workspaces",
+      });
 
       navigate("/dashboard/workspaces");
     } catch (err) {
@@ -1777,6 +1816,33 @@ function getSubtaskPriorityIcon(priority) {
         error.response?.data?.message ||
           "Could not save workspace document review.",
       );
+    }
+  }
+
+  async function handleDeleteWorkspaceDocument(document) {
+    if (!document?.id) return;
+
+    const isConfirmed = window.confirm(
+      `Delete "${document.title || "this document"}" from the workspace?`,
+    );
+
+    if (!isConfirmed) return;
+
+    try {
+      setDeletingWorkspaceDocumentId(document.id);
+      setWorkspaceDocumentStatus("");
+      await deleteDocument(document.id);
+      setWorkspaceDocuments((currentDocuments) =>
+        currentDocuments.filter((item) => item.id !== document.id),
+      );
+      setWorkspaceDocumentStatus("Document deleted successfully.");
+    } catch (error) {
+      console.error("Cannot delete workspace document:", error);
+      setWorkspaceDocumentStatus(
+        error.response?.data?.message || "Could not delete workspace document.",
+      );
+    } finally {
+      setDeletingWorkspaceDocumentId("");
     }
   }
 
@@ -2315,12 +2381,9 @@ function getSubtaskPriorityIcon(priority) {
       (total, topic) => total + (topic.files?.length || 0),
       0,
     );
-    const pinnedTopic = discussionTopics[0] || null;
-
 const filteredDiscussionTopics = discussionTopics.filter((topic) => {
   if (topicFilter === "All") return true;
-  if (topicFilter === "Solved") return topic.status === "Solved";
-  return topic.type === topicFilter;
+  return topic.status === "Solved";
 });
     if (selectedTopic) {
   const relatedFiles = selectedTopic.files || [];
@@ -2351,7 +2414,6 @@ const filteredDiscussionTopics = discussionTopics.filter((topic) => {
             <h1>
               {selectedTopic.title}
             </h1>
-          </div>
 
           {canManageTopics && (
             <div className="workspace_topic_header_actions">
@@ -2856,20 +2918,6 @@ const filteredDiscussionTopics = discussionTopics.filter((topic) => {
       <aside className="workspace_clickup_activity">
         <header>
           <h2>Activity</h2>
-
-          <div>
-            <button type="button">
-              <i className="ti-search"></i>
-            </button>
-
-            <button type="button">
-              <i className="ti-bell"></i>
-            </button>
-
-            <button type="button">
-              <i className="ti-filter"></i>
-            </button>
-          </div>
         </header>
 
         <section className="workspace_clickup_activity_body">
@@ -2879,34 +2927,52 @@ const filteredDiscussionTopics = discussionTopics.filter((topic) => {
               <p>No activity yet.</p>
             </div>
           ) : (
-            comments.map((comment) => (
-              <article className="workspace_clickup_comment" key={comment.id}>
-                <div className="workspace_clickup_comment_head">
-                  <div className="workspace_clickup_comment_avatar">
-                    {(comment.author?.name || comment.author || "M")
-                      .slice(0, 1)
-                      .toUpperCase()}
+            comments.map((comment) => {
+              const authorName = comment.author?.name || comment.author || "Member";
+              const authorMatchesCurrentUser = [
+                comment.author?.email,
+                comment.author?.username,
+                comment.author?.fullName,
+                authorName,
+              ]
+                .map(normalizeIdentity)
+                .some(
+                  (identity) =>
+                    identity && currentUserIdentifiers.includes(identity),
+                );
+              const isOwnComment =
+                (currentUserId && String(comment.userId) === currentUserId) ||
+                authorMatchesCurrentUser;
+
+              return (
+                <article
+                  className={`workspace_clickup_comment ${
+                    isOwnComment ? "is_own" : "is_other"
+                  }`}
+                  key={comment.id}
+                >
+                  {!isOwnComment && (
+                    <div className="workspace_clickup_comment_avatar">
+                      {authorName.slice(0, 1).toUpperCase()}
+                    </div>
+                  )}
+
+                  <div className="workspace_clickup_comment_content">
+                    <strong>{isOwnComment ? "You" : authorName}</strong>
+                    <p>{comment.content}</p>
+                    <time dateTime={comment.createdAt || undefined}>
+                      {comment.createdAt
+                        ? new Date(comment.createdAt).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })
+                        : "Just now"}
+                      {isOwnComment ? " · Sent" : " · Received"}
+                    </time>
                   </div>
-
-                  <strong>{comment.author?.name || comment.author}</strong>
-                  <span>
-                    {comment.createdAt
-                      ? new Date(comment.createdAt).toLocaleString()
-                      : "Just now"}
-                  </span>
-                </div>
-
-                <p>{comment.content}</p>
-
-                <footer>
-                  <button type="button">
-                    <i className="ti-thumb-up"></i>
-                  </button>
-
-                  <button type="button">Reply</button>
-                </footer>
-              </article>
-            ))
+                </article>
+              );
+            })
           )}
         </section>
 
@@ -2918,15 +2984,100 @@ const filteredDiscussionTopics = discussionTopics.filter((topic) => {
             <textarea
               value={topicCommentInput}
               onChange={(e) => setTopicCommentInput(e.target.value)}
-              placeholder="Write a comment..."
+              onKeyDown={(event) => {
+                if (event.key === "Enter" && !event.shiftKey) {
+                  event.preventDefault();
+                  event.currentTarget.form?.requestSubmit();
+                }
+              }}
+              placeholder="Type your message..."
             />
 
-            <div>
-              <button type="button">
-                <i className="ti-plus"></i>
+            <div className="workspace_clickup_comment_actions">
+              <button
+                type="button"
+                className="workspace_clickup_comment_more"
+                aria-label="More message options"
+                aria-expanded={Boolean(commentComposerMenu)}
+                onClick={() =>
+                  setCommentComposerMenu((currentMenu) =>
+                    currentMenu ? null : "more",
+                  )
+                }
+              >
+                ...
               </button>
 
-              <button type="submit">
+              {commentComposerMenu && (
+                <div className="workspace_comment_composer_menu">
+                  {commentComposerMenu === "more" ? (
+                    <>
+                      <label
+                        title="Upload a file to this topic chat"
+                      >
+                        <i className="ti-clip"></i>
+                        Send file
+                        <input
+                          type="file"
+                          multiple
+                          onChange={(event) => {
+                            setCommentComposerMenu(null);
+                            handleTopicChatFileChange(event);
+                          }}
+                        />
+                      </label>
+
+                      <button
+                        type="button"
+                        onClick={() => setCommentComposerMenu("mention")}
+                      >
+                        <i className="ti-user"></i>
+                        @Mention
+                        <i className="ti-angle-right"></i>
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        className="workspace_comment_menu_back"
+                        onClick={() => setCommentComposerMenu("more")}
+                      >
+                        <i className="ti-angle-left"></i>
+                        Mention someone
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleInsertTopicMention("everyone")}
+                      >
+                        <span className="workspace_comment_mention_avatar">@</span>
+                        Everyone
+                      </button>
+
+                      {visibleWorkspaceMembers.map((member) => (
+                        <button
+                          type="button"
+                          key={member.id || member.email || member.name}
+                          onClick={() => handleInsertTopicMention(member.name)}
+                        >
+                          <span className="workspace_comment_mention_avatar">
+                            {member.name.slice(0, 1).toUpperCase()}
+                          </span>
+                          {member.name}
+                        </button>
+                      ))}
+                    </>
+                  )}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                className="workspace_clickup_comment_send"
+                aria-label="Send message"
+                disabled={!topicCommentInput.trim()}
+              >
                 <i className="ti-control-play"></i>
               </button>
             </div>
@@ -2975,30 +3126,6 @@ const filteredDiscussionTopics = discussionTopics.filter((topic) => {
     onClick={() => setTopicFilter("All")}
   >
     All topics
-  </button>
-
-  <button
-    type="button"
-    className={topicFilter === "Question" ? "active" : ""}
-    onClick={() => setTopicFilter("Question")}
-  >
-    Questions
-  </button>
-
-  <button
-    type="button"
-    className={topicFilter === "Material" ? "active" : ""}
-    onClick={() => setTopicFilter("Material")}
-  >
-    Materials
-  </button>
-
-  <button
-    type="button"
-    className={topicFilter === "Announcement" ? "active" : ""}
-    onClick={() => setTopicFilter("Announcement")}
-  >
-    Announcements
   </button>
 
   <button
@@ -3153,24 +3280,6 @@ const filteredDiscussionTopics = discussionTopics.filter((topic) => {
 
             {filteredDiscussionTopics.length > 0 && (
               <>
-                <section className="discussion_pinned_card">
-                  <div>
-                    <span>PINNED</span>
-                    <h3>
-                      {pinnedTopic
-                        ? pinnedTopic.title
-                        : "No pinned discussion yet"}
-                    </h3>
-                    <p>
-                      {pinnedTopic
-                        ? `${pinnedTopic.creator || "Workspace"} shared this topic${pinnedTopic.status ? ` · ${pinnedTopic.status}` : ""} · ${pinnedTopic.comments?.length || 0} replies.`
-                        : "Create a topic to surface an important discussion here."}
-                    </p>
-                  </div>
-
-                  <i className="ti-pin-alt"></i>
-                </section>
-
                 <section className="discussion_topic_list">
                   {filteredDiscussionTopics.map((topic) => (
                     <article
@@ -3705,6 +3814,21 @@ const filteredDiscussionTopics = discussionTopics.filter((topic) => {
                             Reject
                           </button>
                         </>
+                      )}
+
+                      {(canManageWorkspace ||
+                        String(document.uploaderId || "") === currentUserId) && (
+                        <button
+                          type="button"
+                          className="delete"
+                          disabled={deletingWorkspaceDocumentId === document.id}
+                          onClick={() => handleDeleteWorkspaceDocument(document)}
+                        >
+                          <i className="ti-trash"></i>
+                          {deletingWorkspaceDocumentId === document.id
+                            ? "Deleting..."
+                            : "Delete"}
+                        </button>
                       )}
 
                     </div>

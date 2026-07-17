@@ -2529,6 +2529,21 @@
   color: #ffffff;
 }
 
+.workspace_document_actions button.delete {
+  border: 1px solid var(--danger-color, #c2413b);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  background: transparent;
+  color: var(--danger-color, #c2413b);
+}
+
+.workspace_document_actions button.delete:hover:not(:disabled) {
+  background: var(--danger-color, #c2413b);
+  color: #ffffff;
+}
+
 .workspace_document_info {
   min-width: 0;
 }
@@ -2923,51 +2938,6 @@
   display: flex;
   flex-direction: column;
   gap: 18px;
-}
-
-.discussion_pinned_card {
-  min-height: 132px;
-  border: 1px solid var(--border-color);
-  border-radius: 18px;
-  background: var(--bg-card);
-  padding: 22px 24px;
-  display: flex;
-  justify-content: space-between;
-  gap: 18px;
-  margin-bottom: 18px;
-  box-shadow: var(--shadow-soft);
-}
-
-.discussion_pinned_card span {
-  color: var(--accent-color);
-  font-size: 11px;
-  font-weight: 900;
-  letter-spacing: 1.4px;
-}
-
-.discussion_pinned_card h3 {
-  margin: 9px 0 8px;
-  color: var(--text-primary);
-  font-size: 20px;
-  font-weight: 900;
-}
-
-.discussion_pinned_card p {
-  margin: 0;
-  color: var(--text-secondary);
-  line-height: 1.5;
-}
-
-.discussion_pinned_card > i {
-  width: 42px;
-  height: 42px;
-  border-radius: 12px;
-  background: var(--bg-secondary, var(--accent-soft));
-  color: var(--accent-color);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
 }
 
 .discussion_topic_list {
@@ -5093,6 +5063,67 @@
   gap: 14px;
 }
 
+.workspace_topic_title_actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.workspace_topic_resolve_button {
+  min-height: 42px;
+  padding: 0 18px;
+  border: 1px solid var(--accent-color);
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-shrink: 0;
+  background: var(--accent-color);
+  color: #fff;
+  font-family: inherit;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform 160ms ease, box-shadow 160ms ease, opacity 160ms ease;
+}
+
+.workspace_topic_resolve_button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px var(--focus-ring);
+}
+
+.workspace_topic_resolve_button:disabled {
+  border-color: var(--success-color, #2f7d4a);
+  background: var(--success-color, #2f7d4a);
+  cursor: default;
+  opacity: 0.78;
+}
+
+.workspace_topic_delete_button {
+  min-height: 42px;
+  padding: 0 18px;
+  border: 1px solid var(--danger-color, #c2413b);
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: transparent;
+  color: var(--danger-color, #c2413b);
+  font-family: inherit;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 160ms ease, color 160ms ease, transform 160ms ease;
+}
+
+.workspace_topic_delete_button:hover {
+  transform: translateY(-1px);
+  background: var(--danger-color, #c2413b);
+  color: #fff;
+}
+
 .workspace_clickup_status_dot {
   width: 15px;
   height: 15px;
@@ -5414,46 +5445,65 @@
 }
 
 .workspace_clickup_comment {
-  border: 1px solid var(--border-color);
-  border-radius: 12px;
-  background: var(--bg-card);
-  padding: 16px;
-  margin-bottom: 14px;
-}
-
-.workspace_clickup_comment_head {
+  width: 100%;
+  margin-bottom: 18px;
   display: flex;
-  align-items: center;
-  gap: 10px;
+  align-items: flex-start;
+  gap: 9px;
 }
 
-.workspace_clickup_comment_head span {
-  color: var(--text-muted);
-  font-size: 12px;
+.workspace_clickup_comment.is_own {
+  justify-content: flex-end;
 }
 
-.workspace_clickup_comment p {
-  margin: 14px 0;
-  color: var(--sidebar-bg);
-  line-height: 1.5;
-}
-
-.workspace_clickup_comment footer {
-  border-top: 1px solid var(--border-color);
-  padding-top: 10px;
+.workspace_clickup_comment_content {
+  max-width: 82%;
   display: flex;
-  justify-content: space-between;
+  flex-direction: column;
+  align-items: flex-start;
 }
 
-.workspace_clickup_comment footer button {
-  border: none;
-  background: transparent;
-  color: var(--text-secondary);
-  cursor: pointer;
+.workspace_clickup_comment.is_own .workspace_clickup_comment_content {
+  align-items: flex-end;
+}
+
+.workspace_clickup_comment_content > strong {
+  margin: 0 4px 6px;
+  color: var(--text-primary);
+  font-size: 13px;
   font-weight: 800;
 }
 
+.workspace_clickup_comment.is_own .workspace_clickup_comment_content > strong {
+  color: var(--accent-color);
+}
+
+.workspace_clickup_comment p {
+  margin: 0;
+  padding: 11px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 6px 16px 16px 16px;
+  background: var(--bg-card);
+  color: var(--text-primary);
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.workspace_clickup_comment.is_own p {
+  border-color: var(--accent-color);
+  border-radius: 16px 6px 16px 16px;
+  background: var(--accent-color);
+  color: #fff;
+}
+
+.workspace_clickup_comment time {
+  margin: 6px 4px 0;
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
 .workspace_clickup_comment_form {
+  position: relative;
   border-top: 1px solid var(--border-color);
   padding: 14px;
   background: var(--bg-card);
@@ -5467,15 +5517,116 @@
   background: var(--bg-card);
   outline: none;
   resize: none;
-  padding: 12px;
+  padding: 12px 54px 48px 14px;
   color: var(--text-primary);
   font-family: inherit;
 }
 
-.workspace_clickup_comment_form div {
-  margin-top: 10px;
+.workspace_clickup_comment_form .workspace_clickup_comment_actions {
+  position: absolute;
+  right: 24px;
+  bottom: 24px;
+  left: 24px;
+  margin: 0;
   display: flex;
+  align-items: center;
   justify-content: space-between;
+  pointer-events: none;
+}
+
+.workspace_clickup_comment_actions button {
+  pointer-events: auto;
+}
+
+.workspace_comment_composer_menu {
+  position: absolute;
+  bottom: 46px;
+  left: 0;
+  z-index: 20;
+  width: min(250px, calc(100vw - 64px));
+  max-height: 260px;
+  padding: 7px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  overflow-y: auto;
+  background: var(--bg-card);
+  box-shadow: var(--shadow-soft, 0 16px 36px rgba(45, 28, 15, 0.18));
+  pointer-events: auto;
+}
+
+.workspace_clickup_comment_form .workspace_comment_composer_menu button,
+.workspace_clickup_comment_form .workspace_comment_composer_menu label {
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: transparent;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: left;
+  cursor: pointer;
+}
+
+.workspace_clickup_comment_form .workspace_comment_composer_menu button:hover,
+.workspace_clickup_comment_form .workspace_comment_composer_menu label:hover {
+  background: var(--accent-soft);
+}
+
+.workspace_comment_composer_menu label.is_disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.workspace_comment_composer_menu label input {
+  display: none;
+}
+
+.workspace_comment_composer_menu .ti-angle-right {
+  margin-left: auto;
+}
+
+.workspace_clickup_comment_form .workspace_comment_composer_menu .workspace_comment_menu_back {
+  margin-bottom: 5px;
+  border-bottom: 1px solid var(--border-color);
+  border-radius: 8px 8px 0 0;
+  color: var(--text-secondary);
+}
+
+.workspace_comment_mention_avatar {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  background: var(--accent-soft);
+  color: var(--accent-color);
+  font-size: 12px;
+  font-weight: 900;
+}
+
+.workspace_clickup_comment_form .workspace_clickup_comment_more {
+  width: auto;
+  min-width: 36px;
+  padding: 0 8px 7px;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: 2px;
+}
+
+.workspace_clickup_comment_form .workspace_clickup_comment_send {
+  width: 38px;
+  height: 38px;
+  justify-content: flex-end;
 }
 
 .workspace_clickup_comment_form button {
@@ -5491,6 +5642,11 @@
 .workspace_clickup_comment_form button[type="submit"] {
   background: var(--accent-color);
   color: var(--bg-card);
+}
+
+.workspace_clickup_comment_form button[type="submit"]:disabled {
+  cursor: default;
+  opacity: 0.45;
 }
 
 @media (max-width: 1020px) {
@@ -5989,6 +6145,12 @@
   cursor: pointer;
 }
 
+.discussion_form_group select:disabled {
+  cursor: default;
+  opacity: 1;
+  color: var(--text-primary);
+}
+
 .discussion_form_group input[type="date"] {
   height: 46px;
   border: 1px solid var(--border-color);
@@ -6018,7 +6180,7 @@
   background: var(--bg-primary);
 
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
 }
 
@@ -6848,6 +7010,21 @@
     padding: 24px 18px 34px;
   }
 
+  .workspace_clickup_title {
+    flex-wrap: wrap;
+  }
+
+  .workspace_topic_title_actions {
+    width: 100%;
+    margin-left: 32px;
+    flex-wrap: wrap;
+  }
+
+  .workspace_topic_resolve_button,
+  .workspace_topic_delete_button {
+    flex: 1 1 170px;
+  }
+
   .workspace_topic_info_panel {
     grid-template-columns: 1fr;
   }
@@ -7022,7 +7199,6 @@
   box-shadow: none !important;
 }
 
-.discussion_pinned_card,
 .discussion_topic_card,
 .discussion_side_card,
 .workspace_member_table,
@@ -7267,7 +7443,6 @@ body[data-theme="white"] .workspace_page {
 
 body[data-theme="white"] .workspace_top_tabs,
 body[data-theme="white"] .discussion_intro_row,
-body[data-theme="white"] .discussion_pinned_card,
 body[data-theme="white"] .discussion_topic_card,
 body[data-theme="white"] .discussion_side_card,
 body[data-theme="white"] .discussion_content_sidebar .workspace_about_card,

@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import axios from "axios";
 import FormInput from "../../common/FormInput/FormInput.jsx";
 import { GoogleLogin, GoogleOAuthProvider } from "@react-oauth/google";
 import api, { refreshAccessToken } from "../../../utils/api.js";
@@ -42,7 +43,7 @@ function LoginPage() {
     } else {
       // Visiting the login page must not silently restore an old cookie.
       // This lets the user deliberately choose a different account.
-      api.post("/auth/logout").catch(() => {
+      axios.post(`${api.defaults.baseURL || "http://localhost:5000/api"}/auth/logout`, {}, { withCredentials: true }).catch(() => {
         // The local login screen should remain usable if the backend is offline.
       });
       clearStoredSession();
@@ -94,7 +95,7 @@ function LoginPage() {
   const handleGuestLogin = async () => {
     // 1. Dọn dẹp session cookie của tài khoản cũ trên Backend
     try {
-      await api.post("/auth/logout");
+      await axios.post(`${api.defaults.baseURL || "http://localhost:5000/api"}/auth/logout`, {}, { withCredentials: true });
     } catch (err) {
       console.warn("Failed to clear backend session cookie for guest:", err);
     }
@@ -111,7 +112,7 @@ function LoginPage() {
       _id: "guest_" + Date.now(),
       role: "GUEST", // Phân biệt role để chặn quyền phía sau
       username: "GuestUser",
-      display_name: "Khách (Guest)",
+      display_name: "Guest",
       email: "guest@studyhub.local",
     };
 
@@ -135,8 +136,8 @@ function LoginPage() {
     if (!trimmedUsername || !password) {
       setLoginNotice({
         type: "warning",
-        title: "Thiếu thông tin đăng nhập",
-        message: "Vui lòng nhập đầy đủ Username/Email và Password.",
+        title: "Missing Credentials",
+        message: "Please enter both Username/Email and Password.",
       });
       return;
     }
@@ -160,12 +161,12 @@ function LoginPage() {
         navigate("/dashboard/home", { replace: true });
       }
     } catch (error) {
-      console.error("Lỗi đăng nhập:", error);
+      console.error("Login failed:", error);
 
       const backendMessage =
         error.response?.data?.message ||
         error.response?.data?.error ||
-        "Đăng nhập thất bại. Vui lòng kiểm tra username/password.";
+        "Login failed. Please check username/password.";
 
       const isWrongPassword =
         error.response?.status === 401 &&
@@ -173,9 +174,9 @@ function LoginPage() {
 
       setLoginNotice({
         type: "error",
-        title: isWrongPassword ? "Sai mật khẩu" : "Đăng nhập thất bại",
+        title: isWrongPassword ? "Incorrect Password" : "Login Failed",
         message: isWrongPassword
-          ? "Mật khẩu bạn vừa nhập chưa đúng. Vui lòng kiểm tra lại hoặc dùng Quên mật khẩu để đặt lại."
+          ? "The password you entered is incorrect. Please verify your details or use Forgot Password to reset it."
           : backendMessage,
       });
     }
@@ -200,11 +201,11 @@ function LoginPage() {
       if (responseData?.requiresOTP) {
         if (responseData?.isResume) {
           alert(
-            "Bạn có quá trình thiết lập tài khoản chưa hoàn tất. Hệ thống đang chuyển đến trang tiếp tục!",
+            "You have an incomplete account setup. Redirecting you to continue!",
           );
         } else {
           alert(
-            "Email này chưa đăng ký tài khoản. Hệ thống tự động chuyển sang luồng đăng ký mới!",
+            "This email is not registered yet. Switching to registration flow!",
           );
         }
 

@@ -185,6 +185,8 @@ function LibraryPage() {
   const [aiTagSuggestionError, setAiTagSuggestionError] = useState("");
   const aiTagRequestIdRef = useRef(0);
   const [uploadNotice, setUploadNotice] = useState(null);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isShareLinkCopied, setIsShareLinkCopied] = useState(false);
 
   const [libraryItems, setLibraryItems] = useState(readStoredLibraryItems);
   const [isLoadingDocuments, setIsLoadingDocuments] = useState(false);
@@ -345,26 +347,22 @@ function LibraryPage() {
     }
   }
 
-  async function handleShareLibrary() {
-    const shareData = {
-      title: libraryName || libraryData.name || "Study library",
-      text: `Open the "${libraryName || libraryData.name}" library on AI Study Hub.`,
-      url: window.location.href,
-    };
+  function handleShareLibrary() {
+    setIsShareLinkCopied(false);
+    setIsShareModalOpen(true);
+  }
 
+  async function handleCopyShareLink() {
     try {
-      if (navigator.share) {
-        await navigator.share(shareData);
-        return;
-      }
-
-      await navigator.clipboard.writeText(shareData.url);
-      alert("Library link copied to clipboard.");
+      await navigator.clipboard.writeText(window.location.href);
+      setIsShareLinkCopied(true);
     } catch (error) {
-      if (error?.name !== "AbortError") {
-        console.error("Cannot share library:", error);
-        alert("Cannot share this library right now.");
-      }
+      console.error("Cannot copy library link:", error);
+      setUploadNotice({
+        type: "error",
+        title: "Could not copy link",
+        message: "Please select and copy the URL manually.",
+      });
     }
   }
 
@@ -749,6 +747,38 @@ function LibraryPage() {
     loadAiRecommendedTags(validFiles);
 
     e.target.value = "";
+    generateTagsAutomatically(validFiles[0]);
+  }
+
+  async function generateTagsAutomatically(file) {
+    if (!file) return;
+    try {
+      setIsGeneratingTags(true);
+      setAiRecommendedTags([]);
+      
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await api.post("/documents/suggest-tags", formData, {
+        headers: { "Content-Type": "multipart/form-data" }
+      });
+
+      if (response.data?.status === "success" && Array.isArray(response.data?.tags)) {
+        const tags = response.data.tags;
+        setAiRecommendedTags(tags);
+        
+        // Auto-fill the 3 hashtags inputs
+        const autoFilled = ["", "", ""];
+        tags.slice(0, 3).forEach((tag, idx) => {
+          autoFilled[idx] = tag;
+        });
+        setHashtags(autoFilled);
+      }
+    } catch (error) {
+      console.error("Failed to generate tags:", error);
+    } finally {
+      setIsGeneratingTags(false);
+    }
   }
 
   function handleHashtagChange(index, value) {
@@ -842,7 +872,6 @@ function LibraryPage() {
             0
           ),
         folderId: pendingFolderId,
-        hashtags: validHashtags,
       }));
 
       setLibraryItems((currentItems) => {
@@ -875,7 +904,11 @@ function LibraryPage() {
       if (error.response?.data?.code === "TAG_VALIDATION_FAILED") {
         setTagErrors(error.response.data.tagValidations || []);
         setAiRecommendedTags(error.response.data.aiRecommendedTags || []);
-        alert("AI Hashtag Verification failed. Please check recommendations next to the input fields.");
+        setUploadNotice({
+          type: "error",
+          title: "AI hashtag verification failed",
+          message: "Please check the recommendations next to the tag fields.",
+        });
       } else if (error.response?.data?.code === "TAG_INPUT_INVALID") {
         setTagInputErrors([
           error.response.data.message || "Please check your tags.",
@@ -1915,11 +1948,54 @@ function LibraryPage() {
         )}
       </section>
 
+      {isShareModalOpen && (
+        <div
+          className="library_share_modal_overlay"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) {
+              setIsShareModalOpen(false);
+            }
+          }}
+        >
+          <div
+            className="library_share_modal"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="library-share-title"
+          >
+            <header>
+              <h2 id="library-share-title">Share library</h2>
+              <button
+                type="button"
+                onClick={() => setIsShareModalOpen(false)}
+                aria-label="Close share dialog"
+              >
+                ×
+              </button>
+            </header>
+            <div className="library_share_link_row">
+              <input
+                type="url"
+                value={window.location.href}
+                readOnly
+                aria-label="Library share URL"
+                onFocus={(event) => event.target.select()}
+              />
+              <button type="button" onClick={handleCopyShareLink}>
+                <i className={isShareLinkCopied ? "ti-check" : "ti-link"}></i>
+                {isShareLinkCopied ? "Copied" : "Copy"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {uploadNotice && (
         <div
           className={`library_upload_notice is_${uploadNotice.type}`}
-          role="status"
-          aria-live="polite"
+          role={uploadNotice.type === "error" ? "alert" : "status"}
+          aria-live={uploadNotice.type === "error" ? "assertive" : "polite"}
         >
           <span className="library_upload_notice_icon">
             <i
@@ -1930,9 +2006,10 @@ function LibraryPage() {
           </span>
           <div>
             <strong>
-              {uploadNotice.type === "success"
-                ? "Upload complete"
-                : "Upload needs review"}
+              {uploadNotice.title ||
+                (uploadNotice.type === "success"
+                  ? "Upload complete"
+                  : "Upload needs review")}
             </strong>
             <p>{uploadNotice.message}</p>
           </div>

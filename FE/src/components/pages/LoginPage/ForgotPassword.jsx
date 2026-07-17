@@ -21,8 +21,8 @@ function ForgotPassword() {
     } catch (error) {
       setNotice({
         type: "error",
-        title: "Không thể gửi OTP",
-        message: error.response?.data?.message || "Lỗi hệ thống. Vui lòng thử lại.",
+        title: "Failed to send OTP",
+        message: error.response?.data?.message || "System error. Please try again.",
       });
     } finally {
       setLoading(false);
@@ -32,9 +32,9 @@ function ForgotPassword() {
   return (
     <div className="login_page">
       <form className="login_form" onSubmit={handleSubmit}>
-        <p className="login_title">Quên mật khẩu</p>
+        <p className="login_title">Forgot Password</p>
         <p className="login_message" style={{textAlign: "left", marginBottom: "15px"}}>
-          Nhập email đã đăng ký của bạn. Hệ thống sẽ gửi một mã OTP gồm 6 chữ số để xác minh.
+          Enter your registered email. The system will send a 6-digit OTP code to verify.
         </p>
 
         {notice && (
@@ -47,7 +47,7 @@ function ForgotPassword() {
         <div className="login_flex">
           <FormInput
             type="email"
-            label="Email đăng ký"
+            label="Registered Email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
@@ -55,12 +55,12 @@ function ForgotPassword() {
         </div>
 
         <button className="login_submit" type="submit" disabled={loading}>
-          {loading ? "Đang gửi..." : "Gửi mã OTP"}
+          {loading ? "Sending..." : "Send OTP"}
         </button>
 
         <p className="login_message" style={{marginTop: "20px"}}>
           <span onClick={() => navigate('/login')} style={{ color: 'var(--accent-color)', cursor: 'pointer', textDecoration: 'underline' }}>
-            Quay lại Đăng nhập
+            Back to Login
           </span>
         </p>
       </form>

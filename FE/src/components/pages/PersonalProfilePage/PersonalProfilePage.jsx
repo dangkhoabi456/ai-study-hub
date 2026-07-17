@@ -7,28 +7,19 @@ import {
   updateMyProfile,
 } from "../../../utils/profileApi";
 import defaultAvatar from "../../../assets/images/account.png";
+import { getStoredUser } from "../../../utils/authToken.js";
 import "./PersonalProfilePage.css";
 
 const PROFILE_BIO_KEY = "aiStudyHubProfileBio";
 const PROFILE_NAME_KEY = "aiStudyHubProfileName";
 
-function getStoredUser() {
-  try {
-    return JSON.parse(localStorage.getItem("user") || "null") || {};
-  } catch (error) {
-    console.error("Cannot read logged-in user from localStorage:", error);
-    return {};
-  }
+function getLocalStoredUser() {
+  return getStoredUser() || {};
 }
 
 function getLoggedInUserId() {
-  try {
-    const storedUser = JSON.parse(localStorage.getItem("user") || "null");
-    return storedUser?.id || storedUser?._id || storedUser?.user_id || "";
-  } catch (error) {
-    console.error("Cannot read logged-in user id from localStorage:", error);
-    return "";
-  }
+  const storedUser = getStoredUser();
+  return storedUser?.id || storedUser?._id || storedUser?.user_id || "";
 }
 
 function getLoggedInUserEmail() {

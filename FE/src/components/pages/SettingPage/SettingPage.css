@@ -805,6 +805,10 @@ body[data-theme="black"] .user_dashboard_layout .settings_table {
   gap: 1rem;
 }
 
+.notification_category_grid.is_library {
+  grid-template-columns: 1fr;
+}
+
 .notification_category_card {
   border: 1px solid var(--settings-line);
   border-radius: 1rem;
@@ -862,6 +866,13 @@ body[data-theme="black"] .user_dashboard_layout .settings_table {
 }
 
 .notification_category_options input[type="checkbox"] {
+  width: 1.05rem;
+  height: 1.05rem;
+  accent-color: var(--settings-accent);
+  cursor: pointer;
+}
+
+.notification_category_options input[type="radio"] {
   width: 1.05rem;
   height: 1.05rem;
   accent-color: var(--settings-accent);

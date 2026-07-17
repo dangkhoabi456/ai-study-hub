@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getDocumentView } from "../../../utils/documentApi";
+import { getStoredUser } from "../../../utils/authToken";
 import FileViewer from "../FileViewer/FileViewer";
 import "./DocumentViewerPage.css";
 
@@ -34,6 +35,7 @@ function DocumentViewerPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
   const [question, setQuestion] = useState("");
+  const isGuest = getStoredUser()?.role === "GUEST";
 
   useEffect(() => {
     let isMounted = true;
@@ -132,42 +134,44 @@ function DocumentViewerPage() {
         documentId={documentData.documentId}
       />
 
-      <section className="document_chat_assistant" aria-label="Document AI assistant">
-        <div className="document_chat_quick_actions">
-          {QUICK_PROMPTS.map((item) => (
-            <button
-              type="button"
-              key={item.label}
-              onClick={() => handleQuickAction(item)}
-            >
-              <i className={item.icon} />
-              {item.label}
-            </button>
-          ))}
-        </div>
+      {!isGuest && (
+        <section className="document_chat_assistant" aria-label="Document AI assistant">
+          <div className="document_chat_quick_actions">
+            {QUICK_PROMPTS.map((item) => (
+              <button
+                type="button"
+                key={item.label}
+                onClick={() => handleQuickAction(item)}
+              >
+                <i className={item.icon} />
+                {item.label}
+              </button>
+            ))}
+          </div>
 
-        <form
-          className="document_chat_input"
-          onSubmit={(event) => {
-            event.preventDefault();
-            openDocumentChat();
-          }}
-        >
-          <input
-            type="text"
-            value={question}
-            onChange={(event) => setQuestion(event.target.value)}
-            placeholder="Ask a question about this document"
-          />
-          <button
-            type="submit"
-            disabled={question.trim() === ""}
-            aria-label="Send question"
+          <form
+            className="document_chat_input"
+            onSubmit={(event) => {
+              event.preventDefault();
+              openDocumentChat();
+            }}
           >
-            <i className="ti-arrow-right" />
-          </button>
-        </form>
-      </section>
+            <input
+              type="text"
+              value={question}
+              onChange={(event) => setQuestion(event.target.value)}
+              placeholder="Ask a question about this document"
+            />
+            <button
+              type="submit"
+              disabled={question.trim() === ""}
+              aria-label="Send question"
+            >
+              <i className="ti-arrow-right" />
+            </button>
+          </form>
+        </section>
+      )}
     </>
   );
 }

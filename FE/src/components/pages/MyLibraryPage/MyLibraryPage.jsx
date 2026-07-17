@@ -8,6 +8,7 @@ import {
 } from "react-icons/lu";
 import { getPublicLibraries } from "../../../utils/publicApi";
 import { getMyLibraries } from "../../../utils/documentApi";
+import { getStoredUser } from "../../../utils/authToken";
 import "./MyLibraryPage.css";
 import "../../../assets/icons/themify-icons-font/themify-icons/themify-icons.css";
 
@@ -17,7 +18,7 @@ function getLibraryName(library) {
 
 function getStoredUserRole() {
   try {
-    const user = JSON.parse(localStorage.getItem("user") || "null");
+    const user = getStoredUser();
     return String(user?.role || "").toUpperCase();
   } catch {
     return "";
@@ -34,9 +35,11 @@ function MyLibraryPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [libraries, setLibraries] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const isLoggedIn = !!getStoredUser();
   const isGuest = getStoredUserRole() === "GUEST";
 
   useEffect(() => {
+    if (!isLoggedIn) return;
     let isMounted = true;
 
     async function loadLibraries() {

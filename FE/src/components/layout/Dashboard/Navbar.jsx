@@ -5,7 +5,7 @@ import {
   HiOutlinePlus,
   HiOutlineSquaresPlus,
 } from "react-icons/hi2";
-import { LuBookPlus } from "react-icons/lu";
+import { LuBookPlus, LuMenu } from "react-icons/lu";
 import {
   getNotificationSettings,
   getNotifications,
@@ -84,6 +84,7 @@ function Navbar({
   searchPlaceholder = "Search library or workspace...",
 }) {
   const navigate = useNavigate();
+  const isLoggedIn = !!getStoredUser();
   const isGuest = getStoredUserRole() === "GUEST";
   const [searchValue, setSearchValue] = useState("");
   const [isSearchFocused, setIsSearchFocused] = useState(false);
@@ -188,7 +189,7 @@ function Navbar({
   }, []);
 
   useEffect(() => {
-    if (isGuest) return;
+    if (!isLoggedIn || isGuest) return;
 
     let isMounted = true;
 
@@ -219,6 +220,7 @@ function Navbar({
   const [workspaces, setWorkspaces] = useState([]);
 
   useEffect(() => {
+    if (!isLoggedIn) return;
     let isMounted = true;
     
     async function loadSearchData() {
@@ -365,8 +367,15 @@ function Navbar({
   return (
     <header className="top_navbar">
       <div className="nav_left">
-        <button className="menu_btn" onClick={onOpenSidebar}>
-          ☰
+        <button
+          type="button"
+          className="menu_btn"
+          aria-label="Open sidebar"
+          onClick={onOpenSidebar}
+          onMouseEnter={onOpenSidebar}
+          onFocus={onOpenSidebar}
+        >
+          <LuMenu aria-hidden="true" />
         </button>
       </div>
 

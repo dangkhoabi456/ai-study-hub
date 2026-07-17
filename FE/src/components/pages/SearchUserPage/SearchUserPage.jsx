@@ -41,9 +41,9 @@ function SearchUserPage() {
 
   return (
     <div style={{ padding: "40px", maxWidth: "600px", margin: "0 auto", minHeight: "100vh" }}>
-      <h2 style={{ fontSize: "24px", marginBottom: "10px" }}>Tìm kiếm người dùng</h2>
+      <h2 style={{ fontSize: "24px", marginBottom: "10px" }}>Search Users</h2>
       <p style={{ color: "var(--text-muted)", marginBottom: "30px" }}>
-        Tìm kiếm bạn bè hoặc người dùng khác để xem thư viện công khai của họ.
+        Search for friends or other users to view their public libraries.
       </p>
 
       <div style={{ position: "relative", marginBottom: "30px" }}>
@@ -52,7 +52,7 @@ function SearchUserPage() {
           type="text"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          placeholder="Nhập tên hoặc username (VD: Đạt, Hương)..."
+          placeholder="Enter name or username..."
           style={{
             width: "100%",
             padding: "14px 14px 14px 45px",

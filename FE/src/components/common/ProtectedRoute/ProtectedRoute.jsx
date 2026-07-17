@@ -31,6 +31,10 @@ function isGuestAllowedPath(pathname) {
     return true;
   }
 
+  if (pathname.startsWith("/dashboard/documents/")) {
+    return true;
+  }
+
   return GUEST_ALLOWED_PATHS.some(
     (allowedPath) => pathname === allowedPath,
   );

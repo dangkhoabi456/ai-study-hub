@@ -12,6 +12,7 @@ import { getWorkspaces } from "../../../utils/workspaceApi.js";
 import { getMyProfile } from "../../../utils/profileApi.js";
 import { getAiSummary } from "../../../utils/aiApi.js";
 import { getPublicLibraries } from "../../../utils/publicApi.js";
+import { getStoredUser } from "../../../utils/authToken.js";
 
 function getItemId(item) {
   return item?.id || item?._id || item?.libraryId || item?.workspaceId || "";
@@ -45,7 +46,7 @@ function getRecentTimestamp(item) {
     
 function getStoredUserRole() {
   try {
-    const user = JSON.parse(localStorage.getItem("user") || "null");
+    const user = getStoredUser();
     return String(user?.role || "").toUpperCase();
   } catch {
     return "";
@@ -83,6 +84,7 @@ function HomePage() {
   const [latestStudyCard, setLatestStudyCard] = useState(null);
 
   useEffect(() => {
+    if (!isLoggedIn) return;
     let isMounted = true;
 
     async function loadDashboardData() {
@@ -123,6 +125,7 @@ function HomePage() {
   }, [isGuest]);
 
   useEffect(() => {
+    if (!isLoggedIn) return;
     if (isGuest) {
       setAiSummary(null);
       setLatestChatDocument(null);
@@ -153,6 +156,7 @@ function HomePage() {
   }, [isGuest]);
 
   useEffect(() => {
+    if (!isLoggedIn) return;
     if (isGuest) {
       setProfileName("Guest");
       return;
@@ -271,12 +275,6 @@ function HomePage() {
   const latestWorkspaceId = getItemId(latestWorkspace);
   const latestChatLibrary = libraries.find(
     (library) => String(getItemId(library)) === String(latestChatDocument?.libraryId),
-  );
-  const latestStudyWorkspace = workspaces.find(
-    (workspace) => String(getItemId(workspace)) === String(latestStudyCard?.workspaceId),
-  );
-  const latestStudyLibrary = libraries.find(
-    (library) => String(getItemId(library)) === String(latestStudyCard?.libraryId),
   );
   const studyTotalCards = Number(latestStudyCard?.totalCards || 0);
   const studyDoneCards = Number(latestStudyCard?.studiedCards || 0);
@@ -618,11 +616,6 @@ function HomePage() {
                 <h2>Latest progress</h2>
               </div>
 
-              {!isGuest && (
-                <Link to="/dashboard/workspaces" className="home_text_link compact_link">
-                  Workspaces
-                </Link>
-              )}
             </div>
 
             {latestStudyCard ? (
@@ -642,17 +635,6 @@ function HomePage() {
                 <div className="study_progress_meter" aria-hidden="true">
                   <span style={{ width: `${studyProgress}%` }} />
                 </div>
-
-                <dl className="study_progress_meta">
-                  <div>
-                    <dt>Workspace</dt>
-                    <dd>{latestStudyWorkspace?.name || "No workspace"}</dd>
-                  </div>
-                  <div>
-                    <dt>Library</dt>
-                    <dd>{latestStudyLibrary?.name || "No library"}</dd>
-                  </div>
-                </dl>
 
                 <Link to="/dashboard/flashcards" className="home_open_btn">
                   Continue

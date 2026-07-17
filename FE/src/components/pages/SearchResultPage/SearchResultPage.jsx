@@ -4,6 +4,7 @@ import { searchUsers } from "../../../utils/searchApi";
 import { getWorkspaces } from "../../../utils/workspaceApi";
 import { getMyLibraries } from "../../../utils/documentApi.js";
 import { getPublicLibraries } from "../../../utils/publicApi.js";
+import { getStoredUser } from "../../../utils/authToken.js";
 import "./SearchResultPage.css";
 
 const FILTERS = [
@@ -15,7 +16,7 @@ const FILTERS = [
 
 function getStoredUserRole() {
   try {
-    const user = JSON.parse(localStorage.getItem("user") || "null");
+    const user = getStoredUser();
     return user?.role || "";
   } catch {
     return "";
@@ -45,7 +46,8 @@ function getInitials(value = "") {
 function SearchResultPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const query = searchParams.get("q") || "";
-  const activeFilter = searchParams.get("type") || "all";
+  const activeFilter = searchParams.get("filter") || "all";
+  const isLoggedIn = !!getStoredUser();
   const isGuest = getStoredUserRole() === "GUEST";
   const effectiveFilter = activeFilter;
   const [users, setUsers] = useState([]);
@@ -55,6 +57,7 @@ function SearchResultPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    if (!isLoggedIn) return;
     let isMounted = true;
 
     async function loadSearchData() {

@@ -9,7 +9,7 @@ export const defaultNotificationSettings = {
 
   discussion: {
     newTopic: true,
-    newReply: true,
+    topicDeleted: true,
     solved: true,
   },
 
@@ -20,8 +20,6 @@ export const defaultNotificationSettings = {
   },
 
   file: {
-    uploaded: true,
-    deleted: true,
     storageWarning: true,
   },
 
