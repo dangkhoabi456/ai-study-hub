@@ -256,6 +256,10 @@ body[data-theme="white"] .user_dashboard_layout .settings_field select {
   font-size: 1.35rem;
 }
 
+body[data-theme="black"] .settings_header_icon {
+  background: #2d2d2d;
+}
+
 .settings_header_copy {
   min-width: 0;
 }
@@ -308,6 +312,13 @@ body[data-theme="white"] .user_dashboard_layout .settings_field select {
   margin-top: 2.75rem;
 }
 
+body[data-theme="white"] .user_dashboard_layout .settings_panel,
+body[data-theme="black"] .user_dashboard_layout .settings_panel {
+  border: none;
+  background: transparent;
+  box-shadow: none;
+}
+
 .settings_panel_title {
   max-width: 42rem;
   margin-bottom: 1rem;
@@ -334,6 +345,11 @@ body[data-theme="white"] .user_dashboard_layout .settings_field select {
   background: var(--hero-card-bg);
   overflow: hidden;
   box-shadow: var(--shadow-soft);
+}
+
+body[data-theme="white"] .user_dashboard_layout .settings_table,
+body[data-theme="black"] .user_dashboard_layout .settings_table {
+  border-color: transparent;
 }
 
 .settings_table_row {

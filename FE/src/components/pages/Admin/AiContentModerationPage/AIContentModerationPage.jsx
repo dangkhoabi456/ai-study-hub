@@ -1,16 +1,42 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
 import { getModerationDocuments, reviewDocument } from "../../../../utils/adminApi";
-import { getMyProfile } from "../../../../utils/profileApi";
-import api from "../../../../utils/api";
-import {
-  clearStoredSession,
-  getStoredUser,
-} from "../../../../utils/authToken";
 import "./AIContentModerationPage.css";
 
 const FILTERS = ["All", "Pending review", "Flagged", "Rejected", "Retry"];
 const PAGE_SIZE = 10;
+
+function FilterDropdown({ label, value, options, icon, onChange }) {
+  const selectedLabel =
+    options.find((option) => option.value === value)?.label || label;
+
+  return (
+    <details className="ai-moderation-page__filter-select">
+      <summary aria-label={`${label}: ${selectedLabel}`}>
+        <i className={icon} aria-hidden="true" />
+        <span>{selectedLabel}</span>
+        <i className="ti-angle-down" aria-hidden="true" />
+      </summary>
+      <div className="ai-moderation-page__filter-options" role="listbox" aria-label={label}>
+        {options.map((option) => (
+          <button
+            type="button"
+            role="option"
+            aria-selected={value === option.value}
+            className={value === option.value ? "is-selected" : ""}
+            key={option.value}
+            onClick={(event) => {
+              onChange(option.value);
+              event.currentTarget.closest("details")?.removeAttribute("open");
+            }}
+          >
+            <span>{option.label}</span>
+            {value === option.value && <i className="ti-check" aria-hidden="true" />}
+          </button>
+        ))}
+      </div>
+    </details>
+  );
+}
 
 function formatBytes(bytes) {
   const value = Number(bytes || 0);
@@ -71,7 +97,6 @@ function getSeverityClass(severity) {
 }
 
 function AIContentModerationPage() {
-  const navigate = useNavigate();
   const [cases, setCases] = useState([]);
   const [selectedCaseId, setSelectedCaseId] = useState(null);
   const [query, setQuery] = useState("");
@@ -81,28 +106,6 @@ function AIContentModerationPage() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
-  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
-  const [adminProfile, setAdminProfile] = useState(() => {
-    try {
-      return getStoredUser();
-    } catch {
-      return null;
-    }
-  });
-
-  async function loadCases() {
-    try {
-      setIsLoading(true);
-      setError("");
-      const data = await getModerationDocuments();
-      setCases(data || []);
-      setSelectedCaseId((data || [])[0]?.id || null);
-    } catch (err) {
-      setError(err.response?.data?.message || "Could not load moderation queue.");
-    } finally {
-      setIsLoading(false);
-    }
-  }
 
   useEffect(() => {
     async function loadInitialCases() {
@@ -122,24 +125,6 @@ function AIContentModerationPage() {
     }
 
     loadInitialCases();
-  }, []);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    async function loadAdminProfile() {
-      try {
-        const profile = await getMyProfile();
-        if (isMounted) setAdminProfile(profile);
-      } catch {
-        // Keep the stored session profile when the optional refresh fails.
-      }
-    }
-
-    loadAdminProfile();
-    return () => {
-      isMounted = false;
-    };
   }, []);
 
   const selectedCase =
@@ -219,19 +204,6 @@ function AIContentModerationPage() {
     setSeverityFilter("All");
   }
 
-  async function handleLogout() {
-    try {
-      await api.post("/auth/logout");
-    } catch {
-      // Local session cleanup must still occur if the server is unavailable.
-    } finally {
-      clearStoredSession();
-      navigate("/login", { replace: true });
-    }
-  }
-
-  const adminName = getDisplayName(adminProfile);
-
   return (
     <section className="ai-moderation-page">
       <header className="ai-moderation-page__page-header">
@@ -240,45 +212,6 @@ function AIContentModerationPage() {
           <p>Review AI-detected issues and decide on the right action to keep the study space safe.</p>
         </div>
 
-        <div className="ai-moderation-page__admin-tools">
-          <button
-            type="button"
-            className="ai-moderation-page__notification"
-            aria-label="Notifications"
-            onClick={loadCases}
-          >
-            <i className="ti-bell" />
-            <span>{cases.length}</span>
-          </button>
-          <button
-            type="button"
-            className="ai-moderation-page__admin-profile"
-            aria-expanded={isProfileMenuOpen}
-            onClick={() => setIsProfileMenuOpen((isOpen) => !isOpen)}
-          >
-            <span className="ai-moderation-page__admin-avatar">
-              {getInitials(adminName)}
-            </span>
-            <span className="ai-moderation-page__admin-name">
-              <strong>{adminName}</strong>
-              <small>{adminProfile?.email || "System administrator"}</small>
-            </span>
-            <i className="ti-angle-down" />
-          </button>
-          {isProfileMenuOpen && (
-            <div className="ai-moderation-page__profile-menu">
-              <button type="button" onClick={() => navigate("/admin/profile")}>
-                <i className="ti-user" /> My profile
-              </button>
-              <button type="button" onClick={() => navigate("/dashboard/home")}>
-                <i className="ti-home" /> User dashboard
-              </button>
-              <button type="button" onClick={handleLogout}>
-                <i className="ti-power-off" /> Log out
-              </button>
-            </div>
-          )}
-        </div>
       </header>
 
       {isLoading && <div className="ai-moderation-page__notice">Loading moderation queue...</div>}
@@ -301,27 +234,28 @@ function AIContentModerationPage() {
           />
         </label>
 
-        <select
-          aria-label="Risk level"
+        <FilterDropdown
+          label="Risk level"
           value={severityFilter}
-          onChange={(event) => setSeverityFilter(event.target.value)}
-        >
-          <option value="All">Risk level</option>
-          <option>High</option>
-          <option>Medium</option>
-        </select>
+          icon="ti-alert"
+          options={[
+            { value: "All", label: "All risk levels" },
+            { value: "High", label: "High risk" },
+            { value: "Medium", label: "Medium risk" },
+          ]}
+          onChange={setSeverityFilter}
+        />
 
-        <select
-          aria-label="Status"
+        <FilterDropdown
+          label="Status"
           value={statusFilter}
-          onChange={(event) => setStatusFilter(event.target.value)}
-        >
-          {FILTERS.map((filter) => (
-            <option key={filter} value={filter}>
-              {filter === "All" ? "Status" : filter}
-            </option>
-          ))}
-        </select>
+          icon="ti-filter"
+          options={FILTERS.map((filter) => ({
+            value: filter,
+            label: filter === "All" ? "All statuses" : filter,
+          }))}
+          onChange={setStatusFilter}
+        />
 
         <button
           type="button"

@@ -246,7 +246,7 @@ function LoginPage() {
 
   return (
     <div className="login_page">
-      <form className="login_form" onSubmit={handleSubmit}>
+      <form className="login_form login_form--main" onSubmit={handleSubmit}>
         <p className="login_title">Log in</p>
 
         {loginNotice && (

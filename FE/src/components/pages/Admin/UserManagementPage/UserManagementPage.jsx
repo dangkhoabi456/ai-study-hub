@@ -73,6 +73,40 @@ function UserAvatar({ user, large = false }) {
     <span className={large ? "is-large" : ""}>{user.avatarText}</span>
   );
 }
+
+function DirectoryDropdown({ label, value, options, icon, onChange }) {
+  const selectedLabel =
+    options.find((option) => option.value === value)?.label || label;
+
+  return (
+    <details className="user-management-page__directory-select">
+      <summary aria-label={`${label}: ${selectedLabel}`}>
+        <i className={icon} aria-hidden="true" />
+        <span>{selectedLabel}</span>
+        <i className="ti-angle-down" aria-hidden="true" />
+      </summary>
+      <div className="user-management-page__directory-options" role="listbox" aria-label={label}>
+        {options.map((option) => (
+          <button
+            type="button"
+            role="option"
+            aria-selected={value === option.value}
+            className={value === option.value ? "is-selected" : ""}
+            key={option.value}
+            onClick={(event) => {
+              onChange(option.value);
+              event.currentTarget.closest("details")?.removeAttribute("open");
+            }}
+          >
+            <span>{option.label}</span>
+            {value === option.value && <i className="ti-check" aria-hidden="true" />}
+          </button>
+        ))}
+      </div>
+    </details>
+  );
+}
+
 function UserManagementPage() {
   const [users, setUsers] = useState([]);
   const [query, setQuery] = useState("");
@@ -319,6 +353,7 @@ function UserManagementPage() {
           <div className="user-management-page__header-actions">
             <button type="button" aria-label="Export users" onClick={exportUsersCsv}>
               <i className="ti-download"></i>
+              <span>Export CSV</span>
             </button>
           </div>
         </header>
@@ -390,25 +425,29 @@ function UserManagementPage() {
                 ))}
               </div>
 
-              <select
+              <DirectoryDropdown
+                label="Role"
                 value={roleFilter}
-                onChange={(event) => setRoleFilter(event.target.value)}
-                aria-label="Filter by role"
-              >
-                <option value="all">Role</option>
-                <option value="user">User</option>
-                <option value="system_admin">System admin</option>
-              </select>
+                icon="ti-id-badge"
+                options={[
+                  { value: "all", label: "All roles" },
+                  { value: "user", label: "User" },
+                  { value: "system_admin", label: "System admin" },
+                ]}
+                onChange={setRoleFilter}
+              />
 
-              <select
-                aria-label="Sort users"
+              <DirectoryDropdown
+                label="Sort users"
                 value={sortBy}
-                onChange={(event) => setSortBy(event.target.value)}
-              >
-                <option value="last-active">Sort: Last active</option>
-                <option value="name">Sort: Name</option>
-                <option value="storage">Sort: Storage</option>
-              </select>
+                icon="ti-exchange-vertical"
+                options={[
+                  { value: "last-active", label: "Sort: Last active" },
+                  { value: "name", label: "Sort: Name" },
+                  { value: "storage", label: "Sort: Storage" },
+                ]}
+                onChange={setSortBy}
+              />
             </div>
 
           <div className="user-management-page__table-wrap">
@@ -420,7 +459,6 @@ function UserManagementPage() {
                   <th>Status</th>
                   <th>Storage</th>
                   <th>Last active</th>
-                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -473,41 +511,6 @@ function UserManagementPage() {
                           </div>
                         </td>
                         <td>{user.lastActive}</td>
-                        <td>
-                          <div className="user-management-page__row-actions">
-                          <button
-                            type="button"
-                            className="user-management-page__view-button"
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              setSelectedUserId(user.id);
-                            }}
-                          >
-                            View
-                          </button>
-                          {user.id !== currentAdminId && (
-                            <button
-                              type="button"
-                              className={
-                                user.status === "Disabled"
-                                  ? "user-management-page__activate-button"
-                                  : "user-management-page__disable-button"
-                              }
-                              onClick={(event) => {
-                                event.stopPropagation();
-                                openConfirmation(
-                                  user.status === "Disabled"
-                                    ? "reactivate"
-                                    : "disable",
-                                  user,
-                                );
-                              }}
-                            >
-                              {user.status === "Disabled" ? "Activate" : "Disable"}
-                            </button>
-                          )}
-                          </div>
-                        </td>
                       </tr>
                     );
                   })}
@@ -606,16 +609,46 @@ function UserManagementPage() {
                   <h3>System role</h3>
                   <p>Controls access to platform administration features.</p>
                   <div>
-                    <select
-                      value={roleDraft}
-                      disabled={selectedUser.id === currentAdminId}
-                      onChange={(event) => setRoleDraft(event.target.value)}
+                    <details
+                      className="user-management-page__role-select"
+                      onToggle={(event) => {
+                        if (selectedUser.id === currentAdminId) {
+                          event.currentTarget.removeAttribute("open");
+                        }
+                      }}
                     >
-                      <option value="USER">User</option>
-                      <option value="SYSTEM_ADMIN">System Admin</option>
-                    </select>
+                      <summary
+                        aria-label="Select system role"
+                        aria-disabled={selectedUser.id === currentAdminId}
+                      >
+                        <span>{roleDraft === "SYSTEM_ADMIN" ? "System Admin" : "User"}</span>
+                        <i className="ti-angle-down" aria-hidden="true" />
+                      </summary>
+                      <div className="user-management-page__role-options">
+                        {[
+                          { value: "USER", label: "User", description: "Standard workspace access" },
+                          { value: "SYSTEM_ADMIN", label: "System Admin", description: "Full administration access" },
+                        ].map((role) => (
+                          <button
+                            type="button"
+                            role="option"
+                            aria-selected={roleDraft === role.value}
+                            className={roleDraft === role.value ? "is-selected" : ""}
+                            key={role.value}
+                            onClick={(event) => {
+                              setRoleDraft(role.value);
+                              event.currentTarget.closest("details")?.removeAttribute("open");
+                            }}
+                          >
+                            <span><strong>{role.label}</strong><small>{role.description}</small></span>
+                            {roleDraft === role.value && <i className="ti-check" aria-hidden="true" />}
+                          </button>
+                        ))}
+                      </div>
+                    </details>
                     <button
                       type="button"
+                      className="user-management-page__save-role"
                       disabled={
                         selectedUser.id === currentAdminId ||
                         roleDraft === selectedUser.role

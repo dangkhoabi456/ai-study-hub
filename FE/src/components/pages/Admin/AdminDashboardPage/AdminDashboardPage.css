@@ -190,6 +190,25 @@
   padding: 30px 0 56px;
 }
 
+.admin-dashboard__chart-heading { margin-bottom: 18px; display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; }
+.admin-dashboard__chart-heading h1 { margin: 7px 0 5px; font-size: clamp(27px, 3vw, 38px); line-height: 1; letter-spacing: -0.045em; }
+.admin-dashboard__chart-heading p,
+.admin-dashboard__chart-refresh span { margin: 0; color: var(--admin-muted); font-size: 12px; }
+.admin-dashboard__chart-refresh { display: flex; align-items: center; gap: 12px; }
+.admin-dashboard__chart-refresh button { min-height: 38px; border: 1px solid var(--admin-line-strong); border-radius: 9px; background: var(--hero-card-bg); color: var(--admin-ink); padding: 0 14px; cursor: pointer; font-size: 12px; font-weight: 750; }
+.admin-dashboard__chart-refresh button:disabled { cursor: wait; opacity: 0.65; }
+.admin-dashboard__charts-grid { margin-bottom: 24px; display: grid; grid-template-columns: minmax(260px, 0.8fr) minmax(420px, 1.2fr); gap: 18px; }
+.admin-dashboard__chart-card { min-width: 0; min-height: 330px; border: 1px solid var(--admin-line); border-radius: 10px; background: var(--hero-card-bg); padding: 20px 20px 10px; box-shadow: var(--shadow-soft); overflow: hidden; }
+.admin-dashboard__chart-card > header { min-height: 39px; display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.admin-dashboard__chart-card > header span,
+.admin-dashboard__chart-card > header strong { display: block; }
+.admin-dashboard__chart-card > header span { color: var(--admin-muted); font-size: 11px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
+.admin-dashboard__chart-card > header strong { margin-top: 5px; font-size: 21px; line-height: 1; letter-spacing: -0.035em; }
+.admin-dashboard__chart-card > header small { color: var(--admin-subtle); font-size: 10px; text-align: right; }
+.admin-dashboard__chart-card .apexcharts-canvas { margin: 0 auto; }
+.admin-dashboard__chart-card .apexcharts-text,
+.admin-dashboard__chart-card .apexcharts-legend-text { fill: var(--admin-muted) !important; color: var(--admin-muted) !important; }
+
 .admin-dashboard__notice {
   min-height: 46px;
   border: 1px solid var(--border-color);
@@ -717,6 +736,10 @@
   background: var(--sidebar-bg);
 }
 
+body[data-theme="white"] .admin-dashboard__log-dot.is-ai {
+  background: var(--accent-color);
+}
+
 .admin-dashboard__log-dot.is-workspace {
   background: var(--admin-olive);
 }
@@ -822,6 +845,10 @@
     grid-template-columns: 1fr;
   }
 
+  .admin-dashboard__charts-grid {
+    grid-template-columns: 1fr;
+  }
+
   .admin-dashboard__stats-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -856,6 +883,21 @@
   .admin-dashboard__inner {
     width: min(100% - 24px, 1440px);
     padding-top: 20px;
+  }
+
+  .admin-dashboard__chart-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .admin-dashboard__chart-refresh {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .admin-dashboard__chart-card {
+    min-height: 310px;
+    padding-inline: 12px;
   }
 
   .admin-dashboard__overview-card,

@@ -2,6 +2,36 @@ import { useEffect, useMemo, useState } from "react";
 import { getActivityLogs } from "../../../../utils/adminApi";
 import "./ActivityLogPage.css";
 
+function LogFilterDropdown({ label, value, options, icon, onChange }) {
+  return (
+    <details className="activity-log-page__filter-select">
+      <summary aria-label={`${label}: ${value}`}>
+        <i className={icon} aria-hidden="true" />
+        <span>{value}</span>
+        <i className="ti-angle-down" aria-hidden="true" />
+      </summary>
+      <div className="activity-log-page__filter-options" role="listbox" aria-label={label}>
+        {options.map((option) => (
+          <button
+            type="button"
+            role="option"
+            aria-selected={value === option}
+            className={value === option ? "is-selected" : ""}
+            key={option}
+            onClick={(event) => {
+              onChange(option);
+              event.currentTarget.closest("details")?.removeAttribute("open");
+            }}
+          >
+            <span>{option}</span>
+            {value === option && <i className="ti-check" aria-hidden="true" />}
+          </button>
+        ))}
+      </div>
+    </details>
+  );
+}
+
 function getDisplayName(user) {
   return user?.full_name || user?.username || user?.email || "Unknown user";
 }
@@ -383,46 +413,46 @@ function ActivityLogPage() {
                 />
               </label>
 
-              <select
+              <LogFilterDropdown
+                label="Filter by user"
                 value={userFilter}
-                onChange={(event) => setUserFilter(event.target.value)}
-              >
-                {uniqueUsers.map((user) => (
-                  <option key={user}>{user}</option>
-                ))}
-              </select>
+                options={uniqueUsers}
+                icon="ti-user"
+                onChange={setUserFilter}
+              />
 
-              <select
+              <LogFilterDropdown
+                label="Filter by action"
                 value={actionFilter}
-                onChange={(event) => setActionFilter(event.target.value)}
-              >
-                {actionFilters.map((action) => (
-                  <option key={action}>{action}</option>
-                ))}
-              </select>
+                options={actionFilters}
+                icon="ti-bolt"
+                onChange={setActionFilter}
+              />
 
-              <select
+              <LogFilterDropdown
+                label="Filter by scope"
                 value={workspaceFilter}
-                onChange={(event) => setWorkspaceFilter(event.target.value)}
-              >
-                {uniqueWorkspaces.map((scope) => (
-                  <option key={scope}>{scope}</option>
-                ))}
-              </select>
+                options={uniqueWorkspaces}
+                icon="ti-layers"
+                onChange={setWorkspaceFilter}
+              />
 
               <div className="activity-log-page__date-range">
-                <i className="ti-calendar" />
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={(event) => setStartDate(event.target.value)}
-                />
-                <span>–</span>
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={(event) => setEndDate(event.target.value)}
-                />
+                <label>
+                  <span>From</span>
+                  <span className="activity-log-page__date-input">
+                    <i className="ti-calendar" />
+                    <input type="date" value={startDate} onChange={(event) => setStartDate(event.target.value)} />
+                  </span>
+                </label>
+                <i className="ti-arrow-right" aria-hidden="true" />
+                <label>
+                  <span>To</span>
+                  <span className="activity-log-page__date-input">
+                    <i className="ti-calendar" />
+                    <input type="date" value={endDate} onChange={(event) => setEndDate(event.target.value)} />
+                  </span>
+                </label>
               </div>
             </section>
 

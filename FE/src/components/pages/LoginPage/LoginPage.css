@@ -23,6 +23,11 @@
   box-sizing: border-box;
 }
 
+.login_form--main {
+  gap: 18px;
+  padding: 32px 40px;
+}
+
 .login_title {
   font-size: 28px;
   font-weight: 700;

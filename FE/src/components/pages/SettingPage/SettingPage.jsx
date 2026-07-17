@@ -39,7 +39,7 @@ const SETTING_MENUS = [
 
 const PLANNED_SECTIONS = {
   Account: {
-    icon: "ti-id-badge",
+    icon: "ti-user",
     eyebrow: "Personal",
     title: "Account",
     description:
@@ -259,7 +259,6 @@ function SettingPage() {
     getProfileNameChangedAt,
   );
   const [profileNameStatus, setProfileNameStatus] = useState("");
-  const [customBranding, setCustomBranding] = useState(false);
   const [selectedColor, setSelectedColor] = useState("#b4531a");
   const [activeSetting, setActiveSetting] = useState("Profile & appearance");
   const [notificationSettings, setNotificationSettings] = useState(() =>
@@ -404,8 +403,6 @@ function SettingPage() {
               profileNameMaxLength={PROFILE_NAME_MAX_LENGTH}
               onWorkspaceNameChange={handleProfileNameChange}
               onSaveProfileName={handleSaveProfileName}
-              customBranding={customBranding}
-              setCustomBranding={setCustomBranding}
               selectedColor={selectedColor}
               setSelectedColor={setSelectedColor}
               selectedTheme={theme}
@@ -509,8 +506,6 @@ function ProfileAppearanceSettings({
   profileNameMaxLength,
   onWorkspaceNameChange,
   onSaveProfileName,
-  customBranding,
-  setCustomBranding,
   selectedColor,
   setSelectedColor,
   selectedTheme,
@@ -589,17 +584,6 @@ function ProfileAppearanceSettings({
         description="Keep shared pages visually consistent with your study space."
       >
         <div className="settings_table">
-          <SettingRow
-            title="Enable custom branding"
-            description="Turn on custom logos, color schemes, and public branding."
-          >
-            <SettingsSwitch
-              checked={customBranding}
-              onClick={() => setCustomBranding(!customBranding)}
-              label="Toggle custom branding"
-            />
-          </SettingRow>
-
           <SettingRow
             title="Theme"
             description="Choose the visual style used across your StudyHub workspace."

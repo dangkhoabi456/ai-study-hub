@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import Chart from "react-apexcharts";
 import {
   getActivityLogs,
   getAdminDashboard,
@@ -75,6 +76,52 @@ function formatBytes(bytes) {
   if (value < 1024) return `${value} B`;
   if (value < 1024 * 1024) return `${(value / 1024).toFixed(1)} KB`;
   return `${(value / 1024 / 1024).toFixed(1)} MB`;
+}
+
+function formatUsageDate(value) {
+  if (!value) return "--";
+  return new Intl.DateTimeFormat("en", { month: "short", day: "numeric" }).format(
+    new Date(`${value}T00:00:00`),
+  );
+}
+
+const CHART_COLORS = {
+  orange: "#c05a25",
+  gold: "#e2a72e",
+  teal: "#287f7a",
+  olive: "#63744d",
+  muted: "#b6aa99",
+  red: "#a92d25",
+};
+
+function getBaseChartOptions(categories = []) {
+  return {
+    chart: {
+      background: "transparent",
+      fontFamily: 'Arial, "Segoe UI", sans-serif',
+      toolbar: { show: false },
+      animations: { speed: 500 },
+    },
+    colors: [CHART_COLORS.orange, CHART_COLORS.teal],
+    dataLabels: { enabled: false },
+    grid: { borderColor: "rgba(113, 103, 91, 0.18)", strokeDashArray: 3 },
+    legend: {
+      position: "top",
+      horizontalAlign: "left",
+      fontSize: "11px",
+      labels: { colors: "#71675b" },
+      markers: { size: 5 },
+    },
+    stroke: { curve: "smooth", width: 3 },
+    tooltip: { theme: "light" },
+    xaxis: {
+      categories,
+      labels: { style: { colors: "#71675b", fontSize: "10px" } },
+      axisBorder: { show: false },
+      axisTicks: { show: false },
+    },
+    yaxis: { labels: { style: { colors: "#71675b", fontSize: "10px" } } },
+  };
 }
 
 function AdminDashboardPage() {
@@ -177,6 +224,93 @@ function AdminDashboardPage() {
   ).length;
   const attentionCount = moderationQueueCount + aiCriticalUsers;
 
+  const usageTimeline = useMemo(() => {
+    const byDate = new Map();
+    const ensureDate = (date) => {
+      if (!byDate.has(date)) byDate.set(date, { uploaded: 0, downloaded: 0, tokens: 0, chats: 0 });
+      return byDate.get(date);
+    };
+
+    usage.quotaUsage.forEach((row) => {
+      const point = ensureDate(row.usage_date);
+      point.uploaded += Number(row.bytes_uploaded || 0) / 1024 / 1024;
+      point.downloaded += Number(row.bytes_downloaded || 0) / 1024 / 1024;
+    });
+    usage.aiUsage.forEach((row) => {
+      const point = ensureDate(row.usage_date);
+      point.tokens += Number(row.tokens_consumed || 0);
+      point.chats += Number(row.chat_count || 0);
+    });
+
+    return [...byDate.entries()]
+      .filter(([date]) => date)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .slice(-7)
+      .map(([date, values]) => ({ date: formatUsageDate(date), ...values }));
+  }, [usage]);
+
+  const chartData = useMemo(() => {
+    const dates = usageTimeline.map((point) => point.date);
+    const base = getBaseChartOptions(dates);
+    const disabledUsers = Math.max(users.length - activeUsers, 0);
+
+    return {
+      storage: {
+        options: {
+          ...base,
+          chart: { ...base.chart, type: "bar" },
+          colors: [CHART_COLORS.gold, CHART_COLORS.orange],
+          plotOptions: { bar: { columnWidth: "48%", borderRadius: 3 } },
+          legend: { ...base.legend, show: true },
+          yaxis: { ...base.yaxis, title: { text: "MB", style: { color: "#94887a" } } },
+        },
+        series: [
+          { name: "Uploaded", data: usageTimeline.map((point) => Number(point.uploaded.toFixed(2))) },
+          { name: "Downloaded", data: usageTimeline.map((point) => Number(point.downloaded.toFixed(2))) },
+        ],
+      },
+      ai: {
+        options: {
+          ...base,
+          chart: { ...base.chart, type: "line" },
+          colors: [CHART_COLORS.orange, CHART_COLORS.teal],
+          yaxis: [
+            { ...base.yaxis, title: { text: "Tokens", style: { color: "#94887a" } } },
+            { opposite: true, labels: { style: { colors: "#71675b", fontSize: "10px" } }, title: { text: "Chats", style: { color: "#94887a" } } },
+          ],
+        },
+        series: [
+          { name: "Tokens", data: usageTimeline.map((point) => point.tokens) },
+          { name: "Chats", data: usageTimeline.map((point) => point.chats) },
+        ],
+      },
+      users: {
+        options: {
+          chart: { ...base.chart, type: "donut" },
+          colors: [CHART_COLORS.olive, CHART_COLORS.muted],
+          labels: ["Active", "Disabled"],
+          legend: { ...base.legend, position: "bottom" },
+          stroke: { colors: ["transparent"], width: 3 },
+          plotOptions: { pie: { donut: { size: "68%", labels: { show: true, total: { show: true, label: "Users", formatter: () => String(users.length) } } } } },
+          tooltip: { theme: "light" },
+        },
+        series: [activeUsers, disabledUsers],
+      },
+      operations: {
+        options: {
+          ...getBaseChartOptions(["Documents", "Moderation", "Attention", "AI chats"]),
+          chart: { ...base.chart, type: "bar" },
+          colors: [CHART_COLORS.orange],
+          legend: { show: false },
+          plotOptions: { bar: { horizontal: true, borderRadius: 4, barHeight: "48%", distributed: true } },
+          xaxis: { categories: ["Documents", "Moderation", "Attention", "AI chats"], labels: { style: { colors: "#71675b", fontSize: "10px" } } },
+          yaxis: { labels: { style: { colors: "#71675b", fontSize: "11px", fontWeight: 700 } } },
+        },
+        series: [{ name: "Total", data: [stats?.totalDocuments || 0, moderationQueueCount, attentionCount, stats?.totalAiChatsToday || 0] }],
+      },
+    };
+  }, [activeUsers, attentionCount, moderationQueueCount, stats, usageTimeline, users.length]);
+
   async function resolveModerationCase(documentId, action) {
     const decision = action === "Approved" ? "APPROVE" : "KEEP_REJECTED";
 
@@ -202,102 +336,36 @@ function AdminDashboardPage() {
           </div>
         )}
 
-        <section className="admin-dashboard__overview-grid">
-          <article className="admin-dashboard__overview-card">
-            <div>
-              <span className="admin-dashboard__kicker">Operations console</span>
-              <h1>System overview</h1>
-              <p>Monitor platform activity, review flagged content, track usage and manage users.</p>
-              <p>Use the modules below to keep the system safe, reliable and efficient.</p>
-            </div>
-
-            <footer className="admin-dashboard__overview-footer">
-              <span>Last updated: {lastUpdatedAt || "Not loaded yet"}</span>
-              <button type="button" aria-label="Refresh dashboard" onClick={loadDashboard}>
-                <i className="ti-reload" />
-              </button>
-              <span className="admin-dashboard__auto-refresh-label" style={{ opacity: 0.7, fontSize: '13px', marginLeft: 'auto' }}>
-                Manual refresh mode
-              </span>
-            </footer>
-          </article>
-
-          <article className="admin-dashboard__attention-card">
-            <header>
-              <span className="admin-dashboard__attention-icon">
-                <i className="ti-alert" />
-              </span>
-              <div>
-                <h2>Needs attention</h2>
-                <p>Items require admin review today.</p>
-              </div>
-            </header>
-
-            <div className="admin-dashboard__attention-metrics">
-              <div>
-                <strong>{attentionCount}</strong>
-                <span>Items need admin attention</span>
-              </div>
-              <div>
-                <strong>{criticalModerationCount}</strong>
-                <span>Critical items</span>
-              </div>
-              <div>
-                <strong>{moderationQueueCount}</strong>
-                <span>In review</span>
-              </div>
-              <div>
-                <strong>{aiCriticalUsers}</strong>
-                <span>High priority</span>
-              </div>
-            </div>
-          </article>
+        <section className="admin-dashboard__chart-heading">
+          <div>
+            <span className="admin-dashboard__kicker">Operations console</span>
+            <h1>System overview</h1>
+            <p>Live visual summary of storage, AI activity, users and items that need attention.</p>
+          </div>
+          <div className="admin-dashboard__chart-refresh">
+            <span>Updated {lastUpdatedAt || "not yet"}</span>
+            <button type="button" onClick={loadDashboard} disabled={isLoading}>
+              <i className="ti-reload" /> {isLoading ? "Refreshing" : "Refresh data"}
+            </button>
+          </div>
         </section>
 
-        <section className="admin-dashboard__stats-grid" aria-label="Dashboard summary">
-          <article className="admin-dashboard__stat-card">
-            <span className="admin-dashboard__stat-icon"><i className="ti-user" /></span>
-            <div>
-              <span className="admin-dashboard__stat-label">Users</span>
-              <strong className="admin-dashboard__stat-value">{stats?.totalUsers || users.length}</strong>
-              <span className="admin-dashboard__stat-note">{activeUsers} active</span>
-            </div>
+        <section className="admin-dashboard__charts-grid" aria-label="Dashboard charts">
+          <article className="admin-dashboard__chart-card">
+            <header><div><span>Storage traffic</span><strong>{formatBytes((stats?.totalBytesUploadedToday || 0) + (stats?.totalBytesDownloadedToday || 0))}</strong></div><small>Last 7 recorded days</small></header>
+            <Chart options={chartData.storage.options} series={chartData.storage.series} type="bar" height={260} />
           </article>
-
-          <article className="admin-dashboard__stat-card">
-            <span className="admin-dashboard__stat-icon"><i className="ti-files" /></span>
-            <div>
-              <span className="admin-dashboard__stat-label">Documents</span>
-              <strong className="admin-dashboard__stat-value">{stats?.totalDocuments || 0}</strong>
-              <span className="admin-dashboard__stat-note">{stats?.pendingModeration || moderationQueueCount} flagged</span>
-            </div>
+          <article className="admin-dashboard__chart-card admin-dashboard__chart-card--wide">
+            <header><div><span>AI activity</span><strong>{totalAiTokens.toLocaleString()} tokens</strong></div><small>{stats?.totalAiChatsToday || 0} chats today</small></header>
+            <Chart options={chartData.ai.options} series={chartData.ai.series} type="line" height={260} />
           </article>
-
-          <article className="admin-dashboard__stat-card admin-dashboard__stat-card--alert">
-            <span className="admin-dashboard__stat-icon"><i className="ti-shield" /></span>
-            <div>
-              <span className="admin-dashboard__stat-label">Moderation</span>
-              <strong className="admin-dashboard__stat-value">{moderationQueueCount}</strong>
-              <span className="admin-dashboard__stat-note">Review queue</span>
-            </div>
+          <article className="admin-dashboard__chart-card">
+            <header><div><span>User status</span><strong>{stats?.totalUsers || users.length} accounts</strong></div><small>{activeUsers} active</small></header>
+            <Chart options={chartData.users.options} series={chartData.users.series} type="donut" height={250} />
           </article>
-
-          <article className="admin-dashboard__stat-card">
-            <span className="admin-dashboard__stat-icon"><i className="ti-pie-chart" /></span>
-            <div>
-              <span className="admin-dashboard__stat-label">Quota usage</span>
-              <strong className="admin-dashboard__stat-value">{avgQuotaUsage}%</strong>
-              <span className="admin-dashboard__stat-note">Of storage limit</span>
-            </div>
-          </article>
-
-          <article className="admin-dashboard__stat-card admin-dashboard__stat-card--dark">
-            <span className="admin-dashboard__stat-icon"><i className="ti-bolt" /></span>
-            <div>
-              <span className="admin-dashboard__stat-label">AI usage</span>
-              <strong className="admin-dashboard__stat-value">{totalAiTokens.toLocaleString()}</strong>
-              <span className="admin-dashboard__stat-note">{stats?.totalAiChatsToday || 0} chats</span>
-            </div>
+          <article className="admin-dashboard__chart-card admin-dashboard__chart-card--wide">
+            <header><div><span>Operational workload</span><strong>{attentionCount} need attention</strong></div><small>{criticalModerationCount} critical · {avgQuotaUsage}% average quota</small></header>
+            <Chart options={chartData.operations.options} series={chartData.operations.series} type="bar" height={250} />
           </article>
         </section>
 

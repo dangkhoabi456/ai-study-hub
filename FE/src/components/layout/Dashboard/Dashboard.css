@@ -194,6 +194,15 @@ body {
   border-radius: 8px;
   cursor: pointer;
   font-size: 18px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.menu_btn svg {
+  width: 20px;
+  height: 20px;
+  stroke-width: 2.4;
 }
 
 .menu_btn:hover {
@@ -584,6 +593,28 @@ body {
   border-color: var(--study-theme-surface-strong, var(--accent-soft));
   background: var(--study-theme-surface-strong, var(--accent-soft));
   color: var(--study-theme-text, var(--sidebar-bg));
+}
+
+body[data-theme="white"] .admin_dashboard_btn {
+  border-color: var(--border-color);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+}
+
+body[data-theme="white"] .admin_dashboard_btn:hover {
+  border-color: var(--accent-color);
+  background: var(--accent-soft);
+  color: var(--accent-color);
+}
+
+body[data-theme="white"] .logout_btn {
+  background: var(--accent-color);
+  color: var(--button-text);
+}
+
+body[data-theme="white"] .logout_btn:hover {
+  background: var(--accent-hover);
+  color: var(--button-text);
 }
 
 .logout_btn i,

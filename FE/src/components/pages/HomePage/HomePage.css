@@ -113,11 +113,10 @@
 }
 
 .focus_panel_header .home_label {
-  border: 1px solid var(--border-color);
-  border-radius: 999px;
-  background: var(--bg-secondary);
-  padding: 4px 9px;
-  box-shadow: 0 8px 18px var(--focus-ring);
+  border: 0;
+  background: transparent;
+  padding: 0;
+  box-shadow: none;
 }
 
 .home_headline_block h1 {
