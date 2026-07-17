@@ -10,6 +10,7 @@ const supabase = require('../config/supabase');
 
 // Nodemailer để gửi OTP qua email
 const nodemailer = require('nodemailer');
+const crypto = require('crypto');
 
 // Import các helper bảo mật dùng chung
 const {
@@ -206,6 +207,19 @@ exports.verifyAndLoginGoogle = async (googleToken) => {
     if(user.status === "DISABLED") {
         throw new Error("Tài khoản của bạn đã bị vô hiệu hóa. Vui lòng liên hệ quản trị viên.");
     }
+    const currentSessionId = crypto.randomUUID();
+    const { error: sessionError } = await supabase
+        .from('profiles')
+        .update({
+            session_id: currentSessionId,
+            last_login_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+        })
+        .eq('id', user.id);
+
+    if (sessionError) throw sessionError;
+
+    user.session_id = currentSessionId;
     const accessToken = signAccessToken(user);
 
     // Trả về thông tin login thành công

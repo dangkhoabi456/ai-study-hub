@@ -3,7 +3,7 @@ import {
   getNotificationSettings,
   saveNotificationSettings,
 } from "../../../utils/notificationStore.js";
-import { useTheme } from "../../../context/ThemeContext.jsx";
+import { useTheme } from "../../../context/themeContextValue.js";
 import "./SettingPage.css";
 
 const SETTING_MENUS = [

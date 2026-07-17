@@ -10,6 +10,7 @@ import {
   getLibrary,
   updateLibrary,
   deleteLibrary,
+  suggestDocumentTags,
 } from "../../../utils/documentApi";
 import { getAccessToken, isTokenValid } from "../../../utils/authToken";
 import {
@@ -27,6 +28,12 @@ function getStoredUserRole() {
   } catch {
     return "";
   }
+}
+
+function getFileFingerprint(file) {
+  return file
+    ? `${file.name}:${file.size}:${file.lastModified}`
+    : "";
 }
 
 function LibraryPage() {
@@ -116,6 +123,7 @@ function LibraryPage() {
   }
 
   const folderIdRef = useRef(1);
+  const tagSuggestionRequestRef = useRef(0);
   const authorName =
     localStorage.getItem("aiStudyHubProfileName") || "dangkhoabi456";
   const [libraryData, setLibraryData] = useState(getInitialLibraryData);
@@ -171,12 +179,14 @@ function LibraryPage() {
   }, [
     libraryData?.id,
     libraryData?.name,
+    libraryData?.description,
     libraryData?.documents,
     libraryData?.icon,
     libraryData?.updatedAt,
     libraryData?.stars,
     libraryData?.isStarred,
     libraryName,
+    libraryDescription,
     isGuest,
   ]);
   const [libraryVisibility, setLibraryVisibility] = useState(
@@ -189,6 +199,8 @@ function LibraryPage() {
   const [hashtags, setHashtags] = useState(["", "", ""]);
   const [tagErrors, setTagErrors] = useState([]);
   const [aiRecommendedTags, setAiRecommendedTags] = useState([]);
+  const [isGeneratingTags, setIsGeneratingTags] = useState(false);
+  const [tagGenerationError, setTagGenerationError] = useState("");
 
   const libraryItemsStorageKey = `aiStudyHubImportedLibraryItems:${libraryId}`;
   const [libraryItems, setLibraryItems] = useState(() => {
@@ -205,6 +217,7 @@ function LibraryPage() {
   });
   const [isLoadingDocuments, setIsLoadingDocuments] = useState(false);
   const [isUploadingDocuments, setIsUploadingDocuments] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [isExportingLibrary, setIsExportingLibrary] = useState(false);
 
   const [shareOnProfile, setShareOnProfile] = useState(
@@ -212,23 +225,32 @@ function LibraryPage() {
   );
 
   useEffect(() => {
-    const serializedItems = libraryItems.map(item => {
+    const serializedItems = libraryItems.map((item) => {
       if (item.type === "folder") {
         return item;
       }
+
       return {
         id: item.id,
         type: "file",
+        libraryId: item.libraryId || libraryId,
+        name: item.name || "Untitled document",
+        note: item.note || "",
+        size: item.size || "",
+        sizeBytes: Number(item.sizeBytes) || 0,
+        uploadedTime: item.uploadedTime || "Recently",
+        uploadedBy: item.uploadedBy || "",
+        icon: item.icon || "",
         folderId: item.folderId ?? null,
         hashtags: item.hashtags || [],
-        isBackendFile: true
+        isBackendFile: true,
       };
     });
     localStorage.setItem(
       libraryItemsStorageKey,
       JSON.stringify(serializedItems),
     );
-  }, [libraryItems, libraryItemsStorageKey]);
+  }, [libraryId, libraryItems, libraryItemsStorageKey]);
 
   function sanitizeArchiveName(value, fallback = "file") {
     const safeValue = String(value || fallback)
@@ -321,7 +343,12 @@ function LibraryPage() {
         }
       });
 
-      for (const item of libraryItems.filter((entry) => entry.type !== "folder")) {
+      const downloadableItems = libraryItems.filter(
+        (entry) => entry.type !== "folder",
+      );
+      const downloadBatchSize = 4;
+
+      async function addItemToArchive(item) {
         const fileName = sanitizeArchiveName(item.name, "document");
         const folderPath = getArchiveFolderPath(item.folderId);
         const targetFolder = folderPath
@@ -329,8 +356,10 @@ function LibraryPage() {
           : filesFolder;
 
         if (!item.isBackendFile || !item.id) {
-          failedFiles.push(`${item.name}: file content is not available from backend`);
-          continue;
+          failedFiles.push(
+            `${item.name}: file content is not available from backend`,
+          );
+          return;
         }
 
         try {
@@ -348,6 +377,14 @@ function LibraryPage() {
         } catch (error) {
           failedFiles.push(`${item.name}: ${error.message || "download failed"}`);
         }
+      }
+
+      for (let index = 0; index < downloadableItems.length; index += downloadBatchSize) {
+        await Promise.all(
+          downloadableItems
+            .slice(index, index + downloadBatchSize)
+            .map(addItemToArchive),
+        );
       }
 
       if (failedFiles.length > 0) {
@@ -635,6 +672,10 @@ function LibraryPage() {
         );
         const legacySavedBackendItems = Array.from(savedBackendItems.values())
           .filter((item) => !backendItemIds.has(String(item.id)))
+          .filter(
+            (item) =>
+              typeof item.name === "string" && item.name.trim().length > 0,
+          )
           .filter((item) => {
             if (!item.libraryId) return true;
             return String(item.libraryId) === activeLibraryId;
@@ -685,7 +726,7 @@ function LibraryPage() {
 
     if (files.length === 0) return;
 
-    const MAX_SIZE = 50 * 1024 * 1024;
+    const MAX_SIZE = 20 * 1024 * 1024;
     const validFiles = [];
     const tooLargeFiles = [];
     const unsupportedFiles = [];
@@ -714,7 +755,7 @@ function LibraryPage() {
     }
 
     if (tooLargeFiles.length > 0) {
-      alert(`These files exceed 50MB limit:\n- ${tooLargeFiles.join("\n- ")}`);
+      alert(`These files exceed 20MB limit:\n- ${tooLargeFiles.join("\n- ")}`);
     }
 
     if (validFiles.length === 0) {
@@ -736,6 +777,10 @@ function LibraryPage() {
       return;
     }
 
+    tagSuggestionRequestRef.current += 1;
+    setIsGeneratingTags(false);
+    setTagGenerationError("");
+    setAiRecommendedTags([]);
     setPendingFiles(validFiles);
     setPendingFolderId(currentFolder ? getFolderKey(currentFolder) : null);
     setHashtags(["", "", ""]);
@@ -750,12 +795,87 @@ function LibraryPage() {
     setHashtags(updatedHashtags);
   }
 
+  async function handleGenerateTags() {
+    if (pendingFiles.length !== 1 || isGeneratingTags) return;
+
+    const file = pendingFiles[0];
+    const fingerprint = getFileFingerprint(file);
+    const requestId = tagSuggestionRequestRef.current + 1;
+    tagSuggestionRequestRef.current = requestId;
+    setIsGeneratingTags(true);
+    setTagGenerationError("");
+    setAiRecommendedTags([]);
+
+    try {
+      const tags = await suggestDocumentTags(file);
+
+      if (
+        tagSuggestionRequestRef.current !== requestId ||
+        getFileFingerprint(file) !== fingerprint
+      ) {
+        return;
+      }
+
+      setAiRecommendedTags(tags);
+    } catch (error) {
+      if (tagSuggestionRequestRef.current !== requestId) return;
+
+      setTagGenerationError(
+        error.response?.data?.message ||
+          "Could not generate tags. You can still enter them manually.",
+      );
+    } finally {
+      if (tagSuggestionRequestRef.current === requestId) {
+        setIsGeneratingTags(false);
+      }
+    }
+  }
+
+  function handleApplySuggestedTag(suggestedTag) {
+    setHashtags((currentTags) => {
+      const normalizedSuggestion = suggestedTag.trim().toLocaleLowerCase();
+      const alreadyApplied = currentTags.some(
+        (tag) => tag.trim().toLocaleLowerCase() === normalizedSuggestion,
+      );
+      const emptyIndex = currentTags.findIndex((tag) => tag.trim() === "");
+
+      if (alreadyApplied || emptyIndex === -1) return currentTags;
+
+      const nextTags = [...currentTags];
+      nextTags[emptyIndex] = suggestedTag;
+      return nextTags;
+    });
+  }
+
+  function handleApplyAllSuggestedTags() {
+    setHashtags((currentTags) => {
+      const nextTags = [...currentTags];
+
+      for (const suggestedTag of aiRecommendedTags) {
+        const normalizedSuggestion = suggestedTag.trim().toLocaleLowerCase();
+        const alreadyApplied = nextTags.some(
+          (tag) => tag.trim().toLocaleLowerCase() === normalizedSuggestion,
+        );
+        const emptyIndex = nextTags.findIndex((tag) => tag.trim() === "");
+
+        if (!alreadyApplied && emptyIndex !== -1) {
+          nextTags[emptyIndex] = suggestedTag;
+        }
+      }
+
+      return nextTags;
+    });
+  }
+
   function handleCancelTaggedUpload() {
+    tagSuggestionRequestRef.current += 1;
     setPendingFiles([]);
     setPendingFolderId(null);
     setHashtags(["", "", ""]);
     setTagErrors([]);
     setAiRecommendedTags([]);
+    setIsGeneratingTags(false);
+    setTagGenerationError("");
     setIsTagModalOpen(false);
   }
 
@@ -777,13 +897,15 @@ function LibraryPage() {
 
     try {
       setIsUploadingDocuments(true);
+      setUploadProgress(0);
 
       const workspaceId = libraryData?.workspaceId || libraryData?.workspace_id;
       const uploadedDocuments = await uploadDocuments(
         pendingFiles, 
         workspaceId, 
         libraryData.id || libraryId,
-        validHashtags
+        validHashtags,
+        setUploadProgress,
       );
       
       const uploadedItems = (uploadedDocuments || []).map((document, index) => ({
@@ -828,6 +950,7 @@ function LibraryPage() {
       }
     } finally {
       setIsUploadingDocuments(false);
+      setUploadProgress(0);
     }
   }
 
@@ -1145,10 +1268,14 @@ function LibraryPage() {
   const normalizedDocumentSearch = documentSearch.trim().toLowerCase();
 
   const filteredDocuments = documentItems.filter((item) =>
-    item.name.toLowerCase().includes(normalizedDocumentSearch),
+    String(item?.name || "")
+      .toLowerCase()
+      .includes(normalizedDocumentSearch),
   );
   const filteredFolders = folderItems.filter((item) =>
-    item.name.toLowerCase().includes(normalizedDocumentSearch),
+    String(item?.name || "")
+      .toLowerCase()
+      .includes(normalizedDocumentSearch),
   );
   const filteredStorageItemsCount =
     filteredFolders.length + filteredDocuments.length;
@@ -1824,6 +1951,41 @@ function LibraryPage() {
             </div>
 
             <div className="hashtag_modal_body">
+              <section className="tag_generator_panel" aria-label="AI tag generator">
+                <div>
+                  <strong>Need help choosing tags?</strong>
+                  <p>
+                    Generate optional suggestions, then choose which ones to use.
+                    Your manual tags will not be replaced.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="generate_tags_btn"
+                  onClick={handleGenerateTags}
+                  disabled={
+                    pendingFiles.length !== 1 ||
+                    isGeneratingTags ||
+                    isUploadingDocuments
+                  }
+                >
+                  {isGeneratingTags ? "Generating..." : "Generate tags with AI"}
+                </button>
+              </section>
+
+              {pendingFiles.length > 1 && (
+                <p className="tag_generation_hint">
+                  AI suggestions are available for single-file uploads. You can
+                  still enter shared tags manually for this batch.
+                </p>
+              )}
+
+              {tagGenerationError && (
+                <p className="tag_generation_error" role="alert">
+                  {tagGenerationError}
+                </p>
+              )}
+
               <div className="hashtag_input_list">
                 {hashtags.map((tag, index) => {
                   const userTagNormalized = tag.trim().toLowerCase().replace("#", "");
@@ -1872,20 +2034,19 @@ function LibraryPage() {
               {aiRecommendedTags.length > 0 && (
                 <div className="ai_recommended_tags_section">
                   <strong>Gợi ý từ AI:</strong>
+                  <div className="ai_recommended_tags_header">
+                    <span>AI suggestions</span>
+                    <button type="button" onClick={handleApplyAllSuggestedTags}>
+                      Apply suggestions
+                    </button>
+                  </div>
                   <div className="ai_tags_chips">
                     {aiRecommendedTags.map((recTag) => (
                       <button
                         key={recTag}
                         type="button"
                         className="ai_tag_chip"
-                        onClick={() => {
-                          const emptyIndex = hashtags.findIndex(h => h.trim() === "");
-                          if (emptyIndex !== -1) {
-                            handleHashtagChange(emptyIndex, recTag);
-                          } else {
-                            handleHashtagChange(2, recTag);
-                          }
-                        }}
+                        onClick={() => handleApplySuggestedTag(recTag)}
                       >
                         {recTag}
                       </button>
@@ -1922,7 +2083,11 @@ function LibraryPage() {
                 onClick={handleConfirmTaggedUpload}
                 disabled={isUploadingDocuments}
               >
-                {isUploadingDocuments ? "Uploading" : "Save and upload"}
+                {isUploadingDocuments
+                  ? uploadProgress < 100
+                    ? `Uploading ${uploadProgress}%`
+                    : "Processing document"
+                  : "Save and upload"}
               </button>
             </div>
           </div>

@@ -89,10 +89,6 @@ function ChatBot() {
 
     const currentInput = input.trim();
 
-    const selectedDocument = documents.find(
-      (doc) => doc.id === selectedDocumentId,
-    );
-
     const userMessage = {
       id: Date.now(),
       role: "user",

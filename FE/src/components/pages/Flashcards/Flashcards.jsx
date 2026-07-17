@@ -8,10 +8,6 @@ function Flashcards() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
-  useEffect(() => {
-    loadDocuments();
-  }, []);
-
   async function loadDocuments() {
     try {
       const token = localStorage.getItem("accessToken");
@@ -41,6 +37,11 @@ function Flashcards() {
       setMessage(error.message);
     }
   }
+
+  useEffect(() => {
+    const loadTimer = window.setTimeout(loadDocuments, 0);
+    return () => window.clearTimeout(loadTimer);
+  }, []);
 
   async function generateFlashcards() {
     if (!selectedDocumentId || loading) return;

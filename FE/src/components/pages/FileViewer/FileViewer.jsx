@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import { useState } from "react";
 // Import component ChatBot của anh/chị vào đây
 import ChatBot from "../AIchatbot/ChatBot";
 import "./FileViewer.css"; // Anh/chị tự tạo file CSS cho phần này nhé

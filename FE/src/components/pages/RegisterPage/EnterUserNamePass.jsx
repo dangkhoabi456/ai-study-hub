@@ -1,4 +1,4 @@
-import React, { useState } from "react"; // 1. Bắt buộc import useState
+import { useState } from "react";
 import "./Register.css";
 import FormInput from "../../common/FormInput/FormInput.jsx";
 

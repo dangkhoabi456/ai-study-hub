@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import FormInput from "../../common/FormInput/FormInput.jsx";
 import api from "../../../utils/api.js";
 import { useNavigate, useLocation, Navigate } from "react-router-dom";
@@ -15,15 +15,13 @@ function CompleteProfile() {
   const email = location.state?.email;
   const setupToken = location.state?.setupToken;
 
-  if (!email || !setupToken) {
-    return <Navigate to="/login" replace />;
-  }
-
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   useEffect(() => {
+    if (!email || !setupToken) return undefined;
+
     const delayDebounceFn = setTimeout(async () => {
       if (formData.username.trim() !== "") {
         try {
@@ -35,7 +33,7 @@ function CompleteProfile() {
           } else {
             setUsernameStatus("✅ Username hợp lệ.");
           }
-        } catch (err) {
+        } catch {
           console.error("Lỗi kiểm tra username");
         }
       } else {
@@ -44,7 +42,11 @@ function CompleteProfile() {
     }, 500);
 
     return () => clearTimeout(delayDebounceFn);
-  }, [formData.username]);
+  }, [email, formData.username, setupToken]);
+
+  if (!email || !setupToken) {
+    return <Navigate to="/login" replace />;
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault();

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../../utils/api.js"; // Đảm bảo import đúng đường dẫn api.js của anh/chị
 
@@ -11,15 +11,11 @@ function SearchUserPage() {
   useEffect(() => {
     const keyword = searchQuery.trim();
 
-    if (keyword === "") {
-      setSearchResults([]);
-      return;
-    }
-
-    setIsSearching(true);
+    if (keyword === "") return;
 
     // Áp dụng Debounce 500ms: Đợi người dùng gõ xong chữ mới gọi API để tránh sập server
     const delaySearch = setTimeout(async () => {
+      setIsSearching(true);
       try {
         // Gửi API thật xuống Backend
         const response = await api.get(`/auth/search?q=${encodeURIComponent(keyword)}`);
@@ -38,6 +34,8 @@ function SearchUserPage() {
 
     return () => clearTimeout(delaySearch);
   }, [searchQuery]);
+
+  const visibleSearchResults = searchQuery.trim() ? searchResults : [];
 
   return (
     <div style={{ padding: "40px", maxWidth: "600px", margin: "0 auto", minHeight: "100vh" }}>
@@ -61,13 +59,13 @@ function SearchUserPage() {
       <div className="search_results_container">
         {isSearching ? (
           <p style={{ textAlign: "center", color: "var(--text-muted)" }}>Đang quét dữ liệu...</p>
-        ) : searchQuery && searchResults.length === 0 ? (
+        ) : searchQuery && visibleSearchResults.length === 0 ? (
           <div style={{ textAlign: "center", padding: "40px 0", color: "var(--text-muted)" }}>
             <i className="ti-face-sad" style={{ fontSize: "40px", marginBottom: "10px", display: "block" }}></i>
             <p>Không tìm thấy người dùng nào khớp với "{searchQuery}"</p>
           </div>
         ) : (
-          searchResults.map(user => (
+          visibleSearchResults.map(user => (
             <div
               key={user.id}
               onClick={() => navigate(`/dashboard/profile/${user.id}`)}

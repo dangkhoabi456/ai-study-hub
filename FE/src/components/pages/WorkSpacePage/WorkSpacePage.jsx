@@ -302,18 +302,13 @@ const [isSubtaskPriorityOpen, setIsSubtaskPriorityOpen] = useState(false);
     currentWorkspaceRole === "editor" || currentWorkspaceRole === "admin";
   const canManageWorkspace = currentWorkspaceRole === "admin";
 
-  useEffect(() => {
-    const tabIsAllowed =
-      activeTab === "discussion" ||
-      activeTab === "messages" ||
-      (activeTab === "study" && canManageTopics) ||
-      ((activeTab === "members" || activeTab === "settings") &&
-        canManageWorkspace);
-
-    if (!tabIsAllowed) {
-      setActiveTab("discussion");
-    }
-  }, [activeTab, canManageTopics, canManageWorkspace]);
+  const activeTabIsAllowed =
+    activeTab === "discussion" ||
+    activeTab === "messages" ||
+    (activeTab === "study" && canManageTopics) ||
+    ((activeTab === "members" || activeTab === "settings") &&
+      canManageWorkspace);
+  const visibleActiveTab = activeTabIsAllowed ? activeTab : "discussion";
 
   const [chatMessages, setChatMessages] = useState([
     {
@@ -3077,7 +3072,7 @@ const filteredDiscussionTopics = discussionTopics.filter((topic) => {
     <main className="workspace_page">
       <nav className="workspace_top_tabs">
         <button
-          className={activeTab === "discussion" ? "active" : ""}
+          className={visibleActiveTab === "discussion" ? "active" : ""}
           onClick={() => setActiveTab("discussion")}
         >
           <i className="ti-comments"></i>
@@ -3085,7 +3080,7 @@ const filteredDiscussionTopics = discussionTopics.filter((topic) => {
         </button>
 
         <button
-          className={activeTab === "messages" ? "active" : ""}
+          className={visibleActiveTab === "messages" ? "active" : ""}
           onClick={() => setActiveTab("messages")}
         >
           <i className="ti-comment-alt"></i>
@@ -3094,7 +3089,7 @@ const filteredDiscussionTopics = discussionTopics.filter((topic) => {
 
         {canManageTopics && (
           <button
-            className={activeTab === "study" ? "active" : ""}
+            className={visibleActiveTab === "study" ? "active" : ""}
             onClick={() => setActiveTab("study")}
           >
             <i className="ti-book"></i>
@@ -3105,7 +3100,7 @@ const filteredDiscussionTopics = discussionTopics.filter((topic) => {
         {canManageWorkspace && (
           <>
             <button
-              className={activeTab === "members" ? "active" : ""}
+              className={visibleActiveTab === "members" ? "active" : ""}
               onClick={() => setActiveTab("members")}
             >
               <i className="ti-user"></i>
@@ -3113,7 +3108,7 @@ const filteredDiscussionTopics = discussionTopics.filter((topic) => {
             </button>
 
             <button
-              className={activeTab === "settings" ? "active" : ""}
+              className={visibleActiveTab === "settings" ? "active" : ""}
               onClick={() => setActiveTab("settings")}
             >
               <i className="ti-settings"></i>
@@ -3123,15 +3118,15 @@ const filteredDiscussionTopics = discussionTopics.filter((topic) => {
         )}
       </nav>
 
-      {activeTab === "messages" && renderMessagesTab()}
+      {visibleActiveTab === "messages" && renderMessagesTab()}
 
-      {activeTab === "discussion" && renderDiscussionTab()}
+      {visibleActiveTab === "discussion" && renderDiscussionTab()}
 
-      {activeTab === "study" && renderStudyTab()}
+      {visibleActiveTab === "study" && renderStudyTab()}
 
-      {activeTab === "members" && renderMembersTab()}
+      {visibleActiveTab === "members" && renderMembersTab()}
 
-      {activeTab === "settings" && renderSettingsTab()}
+      {visibleActiveTab === "settings" && renderSettingsTab()}
 
       {renderInviteMemberModal()}
     </main>

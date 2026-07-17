@@ -6,70 +6,6 @@ import studyHubLogo from "../../../assets/images/StudyHubLogo.svg";
 import { getMyLibraries } from "../../../utils/documentApi.js";
 import { getWorkspaces } from "../../../utils/workspaceApi.js";
 
-function readStorageList(key) {
-  try {
-    const value = JSON.parse(localStorage.getItem(key) || "[]");
-    return Array.isArray(value) ? value : [];
-  } catch {
-    return [];
-  }
-}
-
-function getWorkspaceId(workspace) {
-  return workspace?.id || workspace?._id || workspace?.workspaceId || "";
-}
-
-function normalizeWorkspace(workspace, recentWorkspace = {}) {
-  const id = getWorkspaceId(workspace) || getWorkspaceId(recentWorkspace);
-
-  if (!id) return null;
-
-  return {
-    ...recentWorkspace,
-    ...workspace,
-    id,
-    name:
-      workspace?.name ||
-      workspace?.workspaceName ||
-      recentWorkspace?.name ||
-      recentWorkspace?.workspaceName ||
-      "Untitled Workspace",
-    description:
-      workspace?.description ||
-      recentWorkspace?.description ||
-      "Continue the discussion from this workspace.",
-    icon: workspace?.icon || recentWorkspace?.icon || "ti-layout-grid2",
-    visitedAt:
-      Number(recentWorkspace?.visitedAt) ||
-      Number(workspace?.visitedAt) ||
-      0,
-  };
-}
-
-function getSyncedRecentWorkspaces(workspaces, storedRecentWorkspaces) {
-  const workspaceMap = new Map(
-    workspaces
-      .map((workspace) => [getWorkspaceId(workspace), workspace])
-      .filter(([id]) => Boolean(id))
-  );
-
-  const syncedRecentWorkspaces = storedRecentWorkspaces
-    .map((recentWorkspace) => {
-      const workspace = workspaceMap.get(getWorkspaceId(recentWorkspace));
-      return workspace ? normalizeWorkspace(workspace, recentWorkspace) : null;
-    })
-    .filter(Boolean)
-    .sort((a, b) => Number(b.visitedAt || 0) - Number(a.visitedAt || 0));
-
-  if (syncedRecentWorkspaces.length > 0) {
-    return syncedRecentWorkspaces;
-  }
-
-  return workspaces
-    .map((workspace) => normalizeWorkspace(workspace))
-    .filter(Boolean);
-}
-    
 function getStoredUserRole() {
   try {
     const user = JSON.parse(localStorage.getItem("user") || "null");
@@ -157,22 +93,6 @@ function HomePage() {
       icon: "ti-files",
     },
   ], [libraries.length, workspaces.length, totalDocuments]);
-
-  const quickActions = [
-    {
-      title: "Create workspace",
-      description: "Open a private room for topics, files and team discussion.",
-      icon: "ti-briefcase",
-      to: "/dashboard/create-workspace",
-      primary: true,
-    },
-    {
-      title: "Create library",
-      description: "Build a clean collection for documents and study materials.",
-      icon: "ti-folder",
-      to: "/dashboard/create-library",
-    },
-  ];
 
   const latestLibrary = recentLibraries[0];
   const latestWorkspace = recentWorkspaces[0];
@@ -437,29 +357,6 @@ function HomePage() {
           </aside>
         </section>
 
-        {/* <section className="home_action_grid" aria-label="Quick actions">
-          {quickActions.map((action) => (
-            <Link
-              to={action.to}
-              state={action.to.includes("create") ? { from: "/dashboard/home" } : undefined}
-              className={
-                action.primary
-                  ? "quick_action_card quick_action_card_primary"
-                  : "quick_action_card"
-              }
-              key={action.title}
-            >
-              <i className={action.icon}></i>
-              <div>
-                <h3>{action.title}</h3>
-                <p>{action.description}</p>
-              </div>
-              <span className="quick_action_arrow">
-                <i className="ti-arrow-right"></i>
-              </span>
-            </Link>
-          ))}
-        </section> */}
       </section>
     </main>
   );

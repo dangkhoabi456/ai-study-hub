@@ -254,6 +254,19 @@ exports.completeSetup = async (req, res) => {
         // ======================================================
         // 7. TẠO ACCESS TOKEN ĐỂ FRONTEND VÀO DASHBOARD
         // ======================================================
+        const currentSessionId = crypto.randomUUID();
+        const { error: sessionError } = await supabase
+            .from('profiles')
+            .update({
+                session_id: currentSessionId,
+                last_login_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+            })
+            .eq('id', updatedUser.id);
+
+        if (sessionError) throw sessionError;
+
+        updatedUser.session_id = currentSessionId;
         const accessToken = signAccessToken(updatedUser);
 
         res.status(200).json({

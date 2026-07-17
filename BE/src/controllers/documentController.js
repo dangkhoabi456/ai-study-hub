@@ -11,13 +11,29 @@ const {
   moderateDocument,
   createEmbedding,
   toVectorLiteral,
-  generateTagsAndName,
   checkSensitiveContent,
   validateTagsAndContent,
 } = require("../services/aiService");
+const {
+  mapWithConcurrency,
+  normalizeConcurrency,
+} = require("../utils/asyncUtils");
+const { normalizeSuggestedTags } = require("../utils/tagUtils");
 
 const BUCKET = process.env.SUPABASE_DOCUMENT_BUCKET || "documents";
 const { createActivityLog } = require("../services/activityLogService");
+const FILE_VALIDATION_CONCURRENCY = Math.min(
+  normalizeConcurrency(process.env.FILE_VALIDATION_CONCURRENCY, 2),
+  4,
+);
+const FILE_UPLOAD_CONCURRENCY = Math.min(
+  normalizeConcurrency(process.env.FILE_UPLOAD_CONCURRENCY, 2),
+  4,
+);
+const EMBEDDING_CONCURRENCY = Math.min(
+  normalizeConcurrency(process.env.EMBEDDING_CONCURRENCY, 3),
+  8,
+);
 
 function sanitizeFileName(fileName) {
   const baseName = path.basename(fileName || "upload.bin");
@@ -64,42 +80,6 @@ async function processDocumentWithAI(file, documentId, preExtractedText = null, 
       }
     }
 
-      // ==============================================================================
-      // BƯỚC MỚI: Gọi AI phân tích tạo Tags và kiểm tra tên file
-      // ==============================================================================
-      let aiTagsAndName = null;
-      try {
-        if (generateTagsAndName) {
-          aiTagsAndName = await generateTagsAndName(extractedText, file.originalname);
-        }
-      } catch (tagError) {
-        console.warn("Lỗi khi AI generate tags, bỏ qua bước này:", tagError);
-      }
-
-      // Nếu AI sinh ra tags, tiến hành lưu vào DB
-      if (aiTagsAndName && aiTagsAndName.tags && aiTagsAndName.tags.length > 0) {
-        for (const tagName of aiTagsAndName.tags) {
-          const cleanTagName = tagName.replace('#', '').trim().toLowerCase();
-
-          // 1. Kiểm tra xem Tag đã tồn tại trong bảng `tags` chưa, chưa có thì insert
-          let { data: tagData } = await supabase.from("tags").select("id").eq("name", cleanTagName).single();
-
-          if (!tagData) {
-            const { data: newTag } = await supabase.from("tags").insert({ name: cleanTagName }).select("id").single();
-            tagData = newTag;
-          }
-
-          // 2. Gắn tag vào document thông qua bảng `document_tags`
-          if (tagData && tagData.id) {
-            await supabase.from("document_tags").insert({
-              document_id: documentId,
-              tag_id: tagData.id
-            });
-          }
-        }
-      }
-      // ==============================================================================
-
       const chunks = splitTextIntoChunks(extractedText);
 
       if (chunks.length === 0) {
@@ -114,16 +94,19 @@ async function processDocumentWithAI(file, documentId, preExtractedText = null, 
         return { status: "REJECTED", reason: "No readable text chunks could be created.", chunkCount: 0 };
       }
 
-      const chunkRows = [];
-      for (let i = 0; i < chunks.length; i++) {
-        const embedding = await createEmbedding(chunks[i], "document");
-        chunkRows.push({
+      const chunkRows = await mapWithConcurrency(
+        chunks,
+        EMBEDDING_CONCURRENCY,
+        async (chunk, index) => {
+          const embedding = await createEmbedding(chunk, "document");
+          return {
           document_id: documentId,
-          chunk_index: i,
-          content: chunks[i],
+          chunk_index: index,
+          content: chunk,
           embedding: toVectorLiteral(embedding),
-        });
-      }
+          };
+        },
+      );
 
       await supabase.from("document_chunks").delete().eq("document_id", documentId);
 
@@ -236,6 +219,53 @@ exports.listMyDocuments = async (req, res) => {
   }
 };
 
+exports.suggestTagsForFile = async (req, res) => {
+  try {
+    const file = req.file;
+
+    if (!file) {
+      return res.status(400).json({
+        status: "error",
+        message: "Please choose one document before generating tags.",
+      });
+    }
+
+    const extractedText = await extractTextFromFile(file);
+
+    if (!extractedText || extractedText.trim().length < 20) {
+      return res.status(422).json({
+        status: "error",
+        message: "Could not extract enough readable text to generate tags.",
+      });
+    }
+
+    const tagResult = await validateTagsAndContent(
+      extractedText,
+      file.originalname,
+      [],
+    );
+    const tags = normalizeSuggestedTags(tagResult.aiRecommendedTags, 5);
+
+    if (tags.length === 0) {
+      return res.status(422).json({
+        status: "error",
+        message: "AI could not generate useful tags for this document.",
+      });
+    }
+
+    return res.status(200).json({
+      status: "success",
+      data: { tags },
+    });
+  } catch (error) {
+    console.error("Tag suggestion error:", error);
+    return res.status(500).json({
+      status: "error",
+      message: "Could not generate document tags.",
+    });
+  }
+};
+
 exports.uploadDocuments = async (req, res) => {
   try {
     const userID = req.user.id;
@@ -286,40 +316,77 @@ exports.uploadDocuments = async (req, res) => {
     }
 
     // 1. Trích xuất text và chạy kiểm tra nhạy cảm + tag validation cho tất cả các file trước
-    const processedFilesData = [];
-
-    for (const file of files) {
+    const processedFilesData = await mapWithConcurrency(
+      files,
+      FILE_VALIDATION_CONCURRENCY,
+      async (file) => {
       const extractedText = await extractTextFromFile(file);
 
-      // Kiểm tra ngôn từ nhạy cảm
-      const sensitivity = await checkSensitiveContent(extractedText);
+        const [sensitivity, tagValidationResult] = await Promise.all([
+          checkSensitiveContent(extractedText),
+          validateTagsAndContent(extractedText, file.originalname, userTags),
+        ]);
 
-      // Chạy AI validation cho hashtag do người dùng nhập vào
-      const tagValidationResult = await validateTagsAndContent(extractedText, file.originalname, userTags);
+        return {
+          file,
+          extractedText,
+          sensitivity,
+          tagValidationResult,
+        };
+      },
+    );
 
-      if (!tagValidationResult.isValid) {
-        return res.status(400).json({
-          status: "error",
-          code: "TAG_VALIDATION_FAILED",
-          message: `Hashtag kiểm duyệt không hợp lệ cho tài liệu "${file.originalname}".`,
-          tagValidations: tagValidationResult.tagValidations,
-          aiRecommendedTags: tagValidationResult.aiRecommendedTags
-        });
-      }
+    const invalidFile = processedFilesData.find(
+      ({ tagValidationResult }) => !tagValidationResult.isValid,
+    );
 
-      processedFilesData.push({
-        file,
-        extractedText,
-        sensitivity,
-        aiRecommendedTags: tagValidationResult.aiRecommendedTags
+    if (invalidFile) {
+      return res.status(400).json({
+        status: "error",
+        code: "TAG_VALIDATION_FAILED",
+        message: `Hashtag kiểm duyệt không hợp lệ cho tài liệu "${invalidFile.file.originalname}".`,
+        tagValidations: invalidFile.tagValidationResult.tagValidations,
+        aiRecommendedTags: invalidFile.tagValidationResult.aiRecommendedTags,
       });
     }
 
     // 2. Nếu tất cả đều qua kiểm định, tiến hành upload và lưu database
-    const uploadedDocuments = [];
+    const tagPromiseCache = new Map();
 
-    for (const processedData of processedFilesData) {
-      const { file, extractedText, sensitivity, aiRecommendedTags } = processedData;
+    function resolveTag(tagName) {
+      if (!tagPromiseCache.has(tagName)) {
+        tagPromiseCache.set(
+          tagName,
+          (async () => {
+            let { data: tagData } = await supabase
+              .from("tags")
+              .select("id")
+              .eq("name", tagName)
+              .maybeSingle();
+
+            if (!tagData) {
+              const { data: newTag, error: newTagError } = await supabase
+                .from("tags")
+                .insert({ name: tagName })
+                .select("id")
+                .single();
+
+              if (!newTagError) tagData = newTag;
+            }
+
+            return tagData;
+          })(),
+        );
+      }
+
+      return tagPromiseCache.get(tagName);
+    }
+
+    const uploadedDocuments = await mapWithConcurrency(
+      processedFilesData,
+      FILE_UPLOAD_CONCURRENCY,
+      async (processedData) => {
+      const { file, extractedText, sensitivity } = processedData;
 
       const safeFileName = sanitizeFileName(file.originalname);
       const storagePath = `${userID}/${Date.now()}-${crypto.randomUUID()}-${safeFileName}`;
@@ -380,29 +447,14 @@ exports.uploadDocuments = async (req, res) => {
       }
 
       // Lưu tags vào DB
-      const allTags = [...userTags, ...aiRecommendedTags];
+      const allTags = [...userTags];
       // Loại bỏ các tag trùng lặp và làm sạch
       const uniqueTags = [...new Set(allTags.map(t => t.trim().toLowerCase().replace("#", "")))];
 
       for (const tagName of uniqueTags) {
         if (!tagName) continue;
 
-        let { data: tagData } = await supabase
-          .from("tags")
-          .select("id")
-          .eq("name", tagName)
-          .maybeSingle();
-
-        if (!tagData) {
-          const { data: newTag, error: newTagError } = await supabase
-            .from("tags")
-            .insert({ name: tagName })
-            .select("id")
-            .single();
-          if (!newTagError) {
-            tagData = newTag;
-          }
-        }
+        const tagData = await resolveTag(tagName);
 
         if (tagData && tagData.id) {
           await supabase.from("document_tags").insert({
@@ -421,8 +473,9 @@ exports.uploadDocuments = async (req, res) => {
         aiRejectReason
       );
 
-      uploadedDocuments.push({ ...document, status: aiResult.status });
-    }
+        return { ...document, status: aiResult.status };
+      },
+    );
 
     return res.status(201).json({ status: "success", data: uploadedDocuments });
   } catch (error) {
@@ -464,7 +517,7 @@ exports.downloadDocument = async (req, res) => {
     }
 
     const { data: signedUrlData, error: signedUrlError } =
-      await supabase.storage.from(BUCKET).createSignedUrl(document.file_url, 60, {
+      await supabase.storage.from(BUCKET).createSignedUrl(document.file_url, 300, {
         download: document.title,
       });
 

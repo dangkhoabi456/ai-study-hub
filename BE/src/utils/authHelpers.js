@@ -20,7 +20,7 @@ function normalizeEmail(email) {
     throw new Error("Email không hợp lệ");
   }
   const cleanEmail = email.trim().toLowerCase();
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const emailRegex = /^(?!.*\.\.)[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@(?!(?:.*\.)?-)[A-Z0-9-]+(?:\.[A-Z0-9-]+)+$/i;
   if (!emailRegex.test(cleanEmail)) {
     throw new Error("Email không hợp lệ");
   }
@@ -36,7 +36,10 @@ function normalizeUsername(username) {
 
 function validateUsername(username) {
   const cleanUsername = normalizeUsername(username);
-  if (!/^[A-Za-z0-9_.]{3,30}$/.test(cleanUsername)) {
+  if (
+    !/^[A-Za-z0-9_][A-Za-z0-9_.]{1,28}[A-Za-z0-9_]$/.test(cleanUsername) ||
+    cleanUsername.includes("..")
+  ) {
     return {
       valid: false,
       message:
@@ -77,6 +80,10 @@ async function hashPassword(password) {
 }
 
 function signAccessToken(user) {
+  if (!user?.id || !user?.session_id) {
+    throw new Error("A user id and session id are required to issue an access token.");
+  }
+
   return jwt.sign(
     {
       userId: user.id,
@@ -91,9 +98,10 @@ function signAccessToken(user) {
 }
 
 function signSetupToken(email) {
+  const normalizedEmail = normalizeEmail(email);
   return jwt.sign(
     {
-      email,
+      email: normalizedEmail,
       type: "complete_setup",
     },
     getJwtSecret(),
@@ -102,9 +110,10 @@ function signSetupToken(email) {
 }
 
 function signPasswordResetToken(email) {
+  const normalizedEmail = normalizeEmail(email);
   return jwt.sign(
     {
-      email,
+      email: normalizedEmail,
       type: "password_reset",
     },
     getJwtSecret(),
@@ -131,7 +140,7 @@ function verifySetupToken(setupToken, expectedEmail) {
     }
     const payload = jwt.verify(setupToken, getJwtSecret());
 
-    if (payload.type !== 'complete_setup' || payload.email !== expectedEmail) {
+    if (payload.type !== 'complete_setup' || payload.email !== normalizeEmail(expectedEmail)) {
         throw new Error('Phiên xác minh OTP không hợp lệ hoặc đã hết hạn.');
     }
     return payload;
@@ -144,7 +153,7 @@ function verifyPasswordResetToken(resetToken, expectedEmail) {
 
   const payload = jwt.verify(resetToken, getJwtSecret());
 
-  if (payload.type !== "password_reset" || payload.email !== expectedEmail) {
+  if (payload.type !== "password_reset" || payload.email !== normalizeEmail(expectedEmail)) {
     throw new Error("Phiên đặt lại mật khẩu không hợp lệ hoặc đã hết hạn.");
   }
 
