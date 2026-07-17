@@ -180,6 +180,7 @@ function LibraryPage() {
   const [tagErrors, setTagErrors] = useState([]);
   const [tagInputErrors, setTagInputErrors] = useState(["", "", ""]);
   const [aiRecommendedTags, setAiRecommendedTags] = useState([]);
+  const [isGeneratingTags, setIsGeneratingTags] = useState(false);
   const [uploadNotice, setUploadNotice] = useState(null);
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isShareLinkCopied, setIsShareLinkCopied] = useState(false);
@@ -715,6 +716,38 @@ function LibraryPage() {
     setIsTagModalOpen(true);
 
     e.target.value = "";
+    generateTagsAutomatically(validFiles[0]);
+  }
+
+  async function generateTagsAutomatically(file) {
+    if (!file) return;
+    try {
+      setIsGeneratingTags(true);
+      setAiRecommendedTags([]);
+      
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await api.post("/documents/suggest-tags", formData, {
+        headers: { "Content-Type": "multipart/form-data" }
+      });
+
+      if (response.data?.status === "success" && Array.isArray(response.data?.tags)) {
+        const tags = response.data.tags;
+        setAiRecommendedTags(tags);
+        
+        // Auto-fill the 3 hashtags inputs
+        const autoFilled = ["", "", ""];
+        tags.slice(0, 3).forEach((tag, idx) => {
+          autoFilled[idx] = tag;
+        });
+        setHashtags(autoFilled);
+      }
+    } catch (error) {
+      console.error("Failed to generate tags:", error);
+    } finally {
+      setIsGeneratingTags(false);
+    }
   }
 
   function handleHashtagChange(index, value) {
@@ -805,7 +838,6 @@ function LibraryPage() {
             0
           ),
         folderId: pendingFolderId,
-        hashtags: validHashtags,
       }));
 
       setLibraryItems((currentItems) => {
@@ -2006,7 +2038,7 @@ function LibraryPage() {
                         <div className="tag_error_message">
                           <span className="error_icon">⚠️</span>
                           <span>
-                            AI gợi ý đặt:{" "}
+                            AI recommended:{" "}
                             <button
                               type="button"
                               className="apply_recommendation_btn"
@@ -2027,9 +2059,16 @@ function LibraryPage() {
                 })}
               </div>
 
+              {isGeneratingTags && (
+                <div className="tag_generating_message">
+                  <i className="ti-reload tag_generating_spinner" aria-hidden="true"></i>
+                  <span>AI is generating suggested tags in English, please wait...</span>
+                </div>
+              )}
+
               {aiRecommendedTags.length > 0 && (
                 <div className="ai_recommended_tags_section">
-                  <strong>Gợi ý từ AI:</strong>
+                  <strong>AI Suggestions:</strong>
                   <div className="ai_tags_chips">
                     {aiRecommendedTags.map((recTag) => (
                       <button

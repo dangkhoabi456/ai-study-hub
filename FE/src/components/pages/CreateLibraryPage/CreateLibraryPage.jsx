@@ -159,13 +159,13 @@ function CreateLibraryPage() {
         },
       });
     } catch (error) {
-      console.error("Lỗi tạo thư viện:", error);
+      console.error("Failed to create library:", error);
       if (error?.response?.status === 409) {
         alert("A library with this name already exists. Please choose another name.");
         return;
       }
 
-      alert("Lỗi kết nối với máy chủ. Thư viện chưa được lưu vào Database.");
+      alert("Server connection error. The library was not saved to the database.");
     }
   }
 

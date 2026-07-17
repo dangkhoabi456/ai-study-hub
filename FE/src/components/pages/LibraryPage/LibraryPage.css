@@ -5474,3 +5474,23 @@ input:focus-visible {
   color: var(--accent-color);
   background: var(--bg-secondary, var(--accent-soft));
 }
+
+.tag_generating_message {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.tag_generating_spinner {
+  animation: tag_spin 1s linear infinite;
+  display: inline-block;
+}
+
+@keyframes tag_spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
