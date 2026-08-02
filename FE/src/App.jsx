@@ -23,7 +23,6 @@ import CreateLibraryPage from "./components/pages/CreateLibraryPage/CreateLibrar
 import PersonalProfilePage from "./components/pages/PersonalProfilePage/PersonalProfilePage.jsx";
 import SearchUserPage from "./components/pages/SearchUserPage/SearchUserPage";
 import SearchResultPage from "./components/pages/SearchResultPage/SearchResultPage.jsx";
-import NotificationsPage from "./components/pages/NotificationsPage/NotificationsPage.jsx";
 // ================= PROTECTED ROUTE =================
 import ProtectedRoute from "./components/common/ProtectedRoute/ProtectedRoute.jsx";
 
@@ -101,7 +100,6 @@ function App() {
           <Route path="flashcards" element={<Flashcards />} />
           <Route path="search-user" element={<SearchUserPage />} />
           <Route path="search" element={<SearchResultPage />} />
-          <Route path="notifications" element={<NotificationsPage />} />
         </Route>
 
         {/* ADMIN ROUTES - CHỈ SYSTEM_ADMIN TRUY CẬP ĐƯỢC */}

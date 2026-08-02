@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import "./HomePage.css";
 import "../../../assets/icons/themify-icons-font/themify-icons/themify-icons.css";
 import { Link } from "react-router-dom";
-import { HiOutlineSquaresPlus } from "react-icons/hi2";
 import { LuBookPlus, LuLibraryBig } from "react-icons/lu";
 import studyHubLogo from "../../../assets/images/StudyHubLogo.svg";
 import studyHubWhiteLogo from "../../../assets/images/StudyHubWhiteLogo.svg";
@@ -329,15 +328,6 @@ function HomePage() {
         state={{ from: "/dashboard/home" }}
         className="home_btn home_btn_primary"
       >
-        <HiOutlineSquaresPlus className="home_create_workspace_icon" aria-hidden="true" />
-        Create library
-      </Link>
-
-      <Link
-        to="/dashboard/create-library"
-        state={{ from: "/dashboard/home" }}
-        className="home_btn home_btn_secondary"
-      >
         <LuBookPlus aria-hidden="true" />
         Create library
       </Link>
@@ -355,7 +345,7 @@ function HomePage() {
 </div>
           </div>
 
-          <aside className="home_focus_panel" aria-label="Recent activity preview">
+          <aside className="home_focus_panel" aria-label="Recent library preview">
             <div className="focus_panel_header">
               <span className="home_label">Today</span>
               <strong>Focus board</strong>
@@ -365,7 +355,7 @@ function HomePage() {
               <div className="focus_card_icon" aria-hidden="true">
                 <LuLibraryBig />
               </div>
-              <span>{isGuest ? "Newest public library" : "Recent library"}</span>
+              <span>Recent library</span>
               <h2>
                 {latestLibrary?.name ||
                   latestLibrary?.libraryName ||
@@ -398,23 +388,6 @@ function HomePage() {
               )}
             </div>
 
-            {!isGuest ? (
-              <div className="focus_card focus_card_light">
-                <span>Recent library</span>
-                <h2>{latestLibrary?.name || "No library opened yet"}</h2>
-              </div>
-            ) : (
-              <div className="focus_card focus_card_light">
-                <span>Guest mode</span>
-                <h2>Public libraries only</h2>
-                <p>You can search public collections and open shared files.</p>
-                <Link
-                  to="/dashboard/search?type=library"
-                >
-                  Search library
-                </Link>
-              </div>
-            )}
           </aside>
         </section>
 

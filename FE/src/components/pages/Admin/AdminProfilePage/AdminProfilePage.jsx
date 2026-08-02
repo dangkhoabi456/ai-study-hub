@@ -2,7 +2,6 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   LuActivity,
-  LuBell,
   LuCheck,
   LuClock3,
   LuMail,
@@ -38,7 +37,6 @@ function AdminProfilePage() {
   const [logs, setLogs] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
-  const [emailAlerts, setEmailAlerts] = useState(true);
 
   useEffect(() => {
     let isMounted = true;
@@ -133,14 +131,6 @@ function AdminProfilePage() {
             </ul>
           </section>
 
-          <section className="admin-profile-page__card">
-            <header><div><LuBell /><span><h2>Preferences</h2><p>Administrative notifications.</p></span></div></header>
-            <label className="admin-profile-page__toggle-row">
-              <span><strong>Email alerts</strong><small>Security and account updates</small></span>
-              <input type="checkbox" checked={emailAlerts} onChange={(event) => setEmailAlerts(event.target.checked)} />
-              <i aria-hidden="true" />
-            </label>
-          </section>
         </aside>
       </div>
     </section>

@@ -132,17 +132,6 @@ function LibraryPage() {
     }
   }
 
-  function handleToggleShareOnProfile() {
-    if (libraryVisibility === "private") {
-      setLibraryNameMessage(
-        "Cannot upload to your personal profile when the library is private."
-      );
-      return;
-    }
-
-    setLibraryNameMessage("");
-    setShareOnProfile((currentValue) => !currentValue);
-  }
   function handleLibraryNameChange(e) {
     const nextValue = e.target.value;
 
@@ -289,10 +278,6 @@ function LibraryPage() {
     setDuplicateConfirm(null);
   }
 
-  const [shareOnProfile, setShareOnProfile] = useState(
-    () => getInitialLibraryData().shareOnProfile ?? false
-  );
-
   function sanitizeArchiveName(value, fallback = "file") {
     const safeValue = String(value || fallback)
       .replace(/[<>:"/\\|?*]+/g, "-")
@@ -312,7 +297,6 @@ function LibraryPage() {
         name: libraryName.trim() || libraryData.name,
         description: libraryDescription.trim() || libraryData.description,
         visibility: libraryVisibility,
-        shareOnProfile,
         stars,
         isStarred,
       },
@@ -524,7 +508,6 @@ function LibraryPage() {
       name: libraryName.trim() || libraryData.name,
       description: libraryDescription.trim() || libraryData.description,
       visibility: libraryVisibility,
-      shareOnProfile: shareOnProfile,
       documents: nextDocumentCount,
       updatedAt: "Updated just now",
     };
@@ -650,7 +633,6 @@ function LibraryPage() {
         setLibraryData(nextLibraryData);
         setLibraryName(nextLibraryData.name || "Public Library");
         setLibraryVisibility("public");
-        setShareOnProfile(false);
         setStars(Number(nextLibraryData.stars) || 0);
         setIsStarred(false);
         setLibraryItems(
@@ -713,10 +695,6 @@ function LibraryPage() {
                 (ownedLibrary.is_public ?? lib.is_public)
                   ? "public"
                   : "private",
-              shareOnProfile:
-                ownedLibrary.share_on_profile ??
-                lib.share_on_profile ??
-                false,
               updatedAt: (ownedLibrary.updated_at || lib.updated_at)
                 ? new Date(
                     ownedLibrary.updated_at || lib.updated_at,
@@ -736,7 +714,6 @@ function LibraryPage() {
             setLibraryName(currentLibData.name);
             setLibraryDescription(currentLibData.description);
             setLibraryVisibility(currentLibData.visibility);
-            setShareOnProfile(currentLibData.shareOnProfile);
             setStars(currentLibData.stars);
             setIsStarred(currentLibData.isStarred);
           } else {
@@ -756,7 +733,6 @@ function LibraryPage() {
             setLibraryName(nextLibraryData.name || "Public Library");
             setLibraryDescription(nextLibraryData.description || "");
             setLibraryVisibility("public");
-            setShareOnProfile(false);
             setStars(Number(nextLibraryData.stars) || 0);
             setIsStarred(Boolean(nextLibraryData.isStarred));
             setLibraryItems(
@@ -1640,7 +1616,6 @@ function LibraryPage() {
         name: trimmedLibraryName,
         description: libraryDescription.trim(),
         is_public: libraryVisibility === "public",
-        share_on_profile: shareOnProfile,
       });
 
       const updatedLibrary = {
@@ -1648,7 +1623,7 @@ function LibraryPage() {
         name: trimmedLibraryName,
         description: libraryDescription.trim(),
         visibility: libraryVisibility,
-        shareOnProfile: shareOnProfile,
+        is_public: libraryVisibility === "public",
         documents: countUploadedFiles(libraryItems),
         updatedAt: "Updated just now",
       };
@@ -2312,68 +2287,30 @@ function LibraryPage() {
                   </div>
 
                   <div className="settings_form_group">
-                    <label>Privacy and visibility</label>
+                    <label>Publishing</label>
 
-                    <div className="settings_visibility_options">
-                      <label
-                        className={`settings_visibility_card ${libraryVisibility === "public" ? "selected" : ""}`}
-                      >
-                        <input
-                          type="radio"
-                          name="libraryVisibility"
-                          value="public"
-                          checked={libraryVisibility === "public"}
-                          onChange={(e) => {
-                            setLibraryVisibility(e.target.value);
-                            setLibraryNameMessage("");
-                          }}
-                        />
-
-                        <div>
-                          <h4>Public</h4>
-                          <p>Visible to members and searchable inside the study hub.</p>
-                        </div>
-                      </label>
-
-                      <label
-                        className={`settings_visibility_card ${libraryVisibility === "private" ? "selected" : ""}`}
-                      >
-                        <input
-                          type="radio"
-                          name="libraryVisibility"
-                          value="private"
-                          checked={libraryVisibility === "private"}
-                          onChange={(e) => {
-                            setLibraryVisibility(e.target.value);
-                            setShareOnProfile(false);
-                            setLibraryNameMessage("");
-                          }}
-                        />
-
-                        <div>
-                          <h4>Private</h4>
-                          <p>Only visible to you and invited collaborators.</p>
-                        </div>
-                      </label>
-                    </div>
+                    <label className={`settings_publish_control ${libraryVisibility === "public" ? "is_enabled" : ""}`}>
+                      <span>
+                        <strong>Allow publish</strong>
+                        <small>
+                          {libraryData?.is_public === true
+                            ? "Published libraries cannot be made private again."
+                            : "Publish this library so it can appear in Discover and search."}
+                        </small>
+                      </span>
+                      <input
+                        type="checkbox"
+                        checked={libraryVisibility === "public"}
+                        disabled={libraryData?.is_public === true}
+                        onChange={(event) => {
+                          setLibraryVisibility(event.target.checked ? "public" : "private");
+                          setLibraryNameMessage("");
+                        }}
+                      />
+                      <span className="settings_publish_switch" aria-hidden="true"><i /></span>
+                    </label>
                   </div>
 
-                  <div className="settings_profile_visibility">
-                    <div>
-                      <label>Profile visibility</label>
-                      <p>Show this library on your personal profile.</p>
-                      <small>Private libraries cannot be shown on profile.</small>
-                    </div>
-
-                    <button
-                      type="button"
-                      className={`settings_toggle_btn ${shareOnProfile ? "active" : ""}`}
-                      onClick={handleToggleShareOnProfile}
-                      aria-label="Toggle library visibility on profile"
-                    >
-                      <span></span>
-                    </button>
-                  </div>
                 </form>
 
                 <div className="settings_save_bar">
@@ -2478,10 +2415,6 @@ function LibraryPage() {
                 <strong>{stars}</strong>
               </div>
 
-              <div className="info_row">
-                <span>Profile visibility</span>
-                <strong>{shareOnProfile ? "Shown" : "Hidden"}</strong>
-              </div>
             </div>
 
             <div className="summarize_card">
@@ -2609,7 +2542,7 @@ function LibraryPage() {
           <button
             type="button"
             onClick={() => setUploadNotice(null)}
-            aria-label="Close upload notification"
+            aria-label="Close upload message"
           >
             ×
           </button>

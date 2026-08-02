@@ -247,7 +247,8 @@
   background: var(--hero-card-bg);
   backdrop-filter: blur(18px);
   display: grid;
-  gap: 16px;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 12px;
 }
 
 .focus_panel_header {
@@ -368,7 +369,7 @@
   background: var(--hero-card-bg);
   backdrop-filter: blur(16px);
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
 }
 
@@ -996,7 +997,7 @@
   }
 
   .home_focus_panel {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr;
   }
 
   .focus_panel_header {

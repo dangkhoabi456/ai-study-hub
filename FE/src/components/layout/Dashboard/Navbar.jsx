@@ -1,15 +1,9 @@
 import { Link, useNavigate } from "react-router-dom";
 import { useEffect, useMemo, useState } from "react";
 import {
-  HiOutlineBell,
   HiOutlinePlus,
 } from "react-icons/hi2";
 import { LuBookPlus, LuMenu } from "react-icons/lu";
-import {
-  getNotificationSettings,
-  getNotifications,
-  markAllNotificationsAsRead,
-} from "../../../utils/notificationStore.js";
 import { searchUsers } from "../../../utils/searchApi.js";
 import { getMyLibraries } from "../../../utils/documentApi.js";
 import { getMyProfile } from "../../../utils/profileApi.js";
@@ -41,10 +35,6 @@ function mergeLibraries(publicLibraries = [], myLibraries = []) {
   });
 
   return [...librariesById.values()];
-}
-
-function getNotificationMessage(message) {
-  return String(message || "").replace(/\bViewer\b/gi, "Contributor");
 }
 
 function saveRecentLibrary(library) {
@@ -85,38 +75,6 @@ function Navbar({
   const [matchedUsers, setMatchedUsers] = useState([]);
   const [profileAvatar, setProfileAvatar] = useState("");
 
-
-  const [notifications, setNotifications] = useState(() => getNotifications());
-
-  const [notificationSettings, setNotificationSettings] = useState(() =>
-    getNotificationSettings()
-  );
-
-  useEffect(() => {
-    function syncNotifications() {
-      setNotifications(getNotifications());
-      setNotificationSettings(getNotificationSettings());
-    }
-
-    window.addEventListener("aiStudyHubNotificationsChanged", syncNotifications);
-    window.addEventListener(
-      "aiStudyHubNotificationSettingsChanged",
-      syncNotifications
-    );
-    window.addEventListener("storage", syncNotifications);
-
-    return () => {
-      window.removeEventListener(
-        "aiStudyHubNotificationsChanged",
-        syncNotifications
-      );
-      window.removeEventListener(
-        "aiStudyHubNotificationSettingsChanged",
-        syncNotifications
-      );
-      window.removeEventListener("storage", syncNotifications);
-    };
-  }, []);
 
   useEffect(() => {
     const keyword = searchValue.trim();
@@ -179,10 +137,6 @@ function Navbar({
       isMounted = false;
     };
   }, [isGuest, isLoggedIn]);
-
-  const unreadNotificationCount = notifications.filter(
-    (notification) => !notification.isRead
-  ).length;
 
   const [libraries, setLibraries] = useState([]);
 
@@ -395,84 +349,6 @@ function Navbar({
                   Import library
                 </Link>
 
-              </div>
-            </div>
-
-            <div className="notification_dropdown">
-              <button type="button" className="notification_btn">
-                <HiOutlineBell aria-hidden="true" />
-                {notificationSettings.showBadge &&
-                  unreadNotificationCount > 0 && (
-                    <span className="notification_badge">
-                      {unreadNotificationCount}
-                    </span>
-                  )}
-              </button>
-
-              <div className="notification_panel">
-                <div className="notification_header">
-                  <div>
-                    <strong>Notifications</strong>
-                    <p>Recent activity</p>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => {
-                      markAllNotificationsAsRead();
-                      setNotifications(getNotifications());
-                    }}
-                  >
-                    Mark all read
-                  </button>
-                </div>
-
-                <div className="notification_list">
-                  {!notificationSettings.enabled ? (
-                    <div className="notification_empty">
-                      <i className="ti-bell"></i>
-                      <p>Notifications are turned off.</p>
-                    </div>
-                  ) : notifications.length === 0 ? (
-                    <div className="notification_empty">
-                      <i className="ti-bell"></i>
-                      <p>No notifications yet.</p>
-                    </div>
-                  ) : (
-                    notifications.map((notification) => (
-                        <button
-                          type="button"
-                          key={notification.id}
-                          className={`notification_item ${
-                            notification.isRead ? "" : "unread"
-                          }`}
-                          onClick={() => {
-                            if (notification.link) {
-                              navigate(notification.link);
-                            }
-                          }}
-                        >
-                          <div className="notification_icon">
-                            <i className={notification.icon}></i>
-                          </div>
-
-                          <div>
-                            <strong>{notification.title}</strong>
-                            <p>{getNotificationMessage(notification.message)}</p>
-                            <span>{notification.createdAt}</span>
-                          </div>
-                        </button>
-                    ))
-                  )}
-                </div>
-
-                <button
-                  type="button"
-                  className="notification_view_all"
-                  onClick={() => navigate("/dashboard/notifications")}
-                >
-                  View all notifications
-                </button>
               </div>
             </div>
 
