@@ -5,22 +5,8 @@ export async function getAdminDashboard() {
   return response.data.data;
 }
 
-export async function getModerationDocuments() {
-  const response = await api.get("/admin/moderation");
-  return response.data.data;
-}
-
-export async function getModerationDocumentViewUrl(documentId) {
-  const response = await api.get(`/admin/moderation/${documentId}/view`);
-  return response.data.data;
-}
-
-export async function reviewDocument(documentId, decision, reason) {
-  const response = await api.patch(`/admin/moderation/${documentId}`, {
-    decision,
-    reason,
-  });
-
+export async function getActivityLogs() {
+  const response = await api.get("/admin/logs");
   return response.data.data;
 }
 
@@ -38,11 +24,6 @@ export async function updateUserStatus(userId, status, reason = "") {
     reason,
   });
 
-  return response.data.data;
-}
-
-export async function getActivityLogs() {
-  const response = await api.get("/admin/logs");
   return response.data.data;
 }
 
@@ -76,6 +57,3 @@ export async function permanentlyDeleteWorkspace(workspaceId, confirmation) {
 }
 
 export async function restoreWorkspace(workspaceId) { const response = await api.patch(`/admin/workspaces/${workspaceId}/restore`); return response.data.data; }
-export async function getAdminIssues(params = {}) { const response = await api.get("/admin/issues", { params }); return response.data.data; }
-export async function getAdminIssue(issueId) { const response = await api.get(`/admin/issues/${issueId}`); return response.data.data; }
-export async function updateAdminIssue(issueId, payload) { const response = await api.patch(`/admin/issues/${issueId}`, payload); return response.data.data; }

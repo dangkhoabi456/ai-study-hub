@@ -17,36 +17,29 @@ import Dashboard from "./components/layout/Dashboard/Dashboard.jsx";
 
 // ================= USER PAGE IMPORTS =================
 import HomePage from "./components/pages/HomePage/HomePage.jsx";
+import DiscoverPage from "./components/pages/DiscoverPage/DiscoverPage.jsx";
 import MyLibraryPage from "./components/pages/MyLibraryPage/MyLibraryPage.jsx";
 import CreateLibraryPage from "./components/pages/CreateLibraryPage/CreateLibraryPage.jsx";
-import MyWorkSpace from "./components/pages/MyWorkSpace/MyWorkSpace.jsx";
 import PersonalProfilePage from "./components/pages/PersonalProfilePage/PersonalProfilePage.jsx";
-import CreateWorkSpacePage from "./components/pages/CreateWorkSpacePage/CreateWorkSpacePage.jsx";
 import SearchUserPage from "./components/pages/SearchUserPage/SearchUserPage";
 import SearchResultPage from "./components/pages/SearchResultPage/SearchResultPage.jsx";
 import NotificationsPage from "./components/pages/NotificationsPage/NotificationsPage.jsx";
-import DiscoverPage from "./components/pages/DiscoverPage/DiscoverPage.jsx";
 // ================= PROTECTED ROUTE =================
 import ProtectedRoute from "./components/common/ProtectedRoute/ProtectedRoute.jsx";
 
 // ================= ADMIN IMPORTS =================
 import AdminLayout from "./components/pages/Admin/AdminLayout/AdminLayout.jsx";
-import ReportIssuePage from "./components/pages/ReportIssuePage/ReportIssuePage.jsx";
 
 const ImportLibraryPage = lazy(() => import("./components/pages/ImportLibraryPage/ImportLibraryPage.jsx"));
 const LibraryPage = lazy(() => import("./components/pages/LibraryPage/LibraryPage.jsx"));
 const DocumentViewerPage = lazy(() => import("./components/pages/DocumentViewerPage/DocumentViewerPage.jsx"));
-const WorkSpacePage = lazy(() => import("./components/pages/WorkSpacePage/WorkSpacePage.jsx"));
 const Flashcards = lazy(() => import("./components/pages/Flashcards/Flashcards.jsx"));
 const ChatBot = lazy(() => import("./components/pages/AIchatbot/ChatBot.jsx"));
 const AdminDashboardPage = lazy(() => import("./components/pages/Admin/AdminDashboardPage/AdminDashboardPage.jsx"));
-const AdminModerationPage = lazy(() => import("./components/pages/Admin/AiContentModerationPage/AIContentModerationPage.jsx"));
 const AdminUsersPage = lazy(() => import("./components/pages/Admin/UserManagementPage/UserManagementPage.jsx"));
 const AdminLogsPage = lazy(() => import("./components/pages/Admin/ActivityLogPage/ActivityLogPage.jsx"));
 const AdminUsagePage = lazy(() => import("./components/pages/Admin/AdminUsagePage/AdminUsagePage.jsx"));
 const AdminProfilePage = lazy(() => import("./components/pages/Admin/AdminProfilePage/AdminProfilePage.jsx"));
-const DeletedWorkspacesPage = lazy(() => import("./components/pages/Admin/DeletedWorkspacesPage/DeletedWorkspacesPage.jsx"));
-const IssueReportsPage = lazy(() => import("./components/pages/Admin/IssueReportsPage/IssueReportsPage.jsx"));
 
 function App() {
   return (
@@ -97,14 +90,7 @@ function App() {
           <Route path="import-library" element={<ImportLibraryPage />} />
           <Route path="libraries/:libraryId" element={<LibraryPage />} />
           <Route path="documents/:documentId" element={<DocumentViewerPage />} />
-          <Route
-            path="workspaces/:workspaceId/topics/:topicId/attachments/:attachmentId"
-            element={<DocumentViewerPage />}
-          />
           <Route path="settings" element={<SettingPage />} />
-          <Route path="create-workspace" element={<CreateWorkSpacePage />} />
-          <Route path="workspaces" element={<MyWorkSpace />} />
-          <Route path="workspaces/:workspaceId" element={<WorkSpacePage />} />
 
           <Route path="profile" element={<PersonalProfilePage />} />
 
@@ -116,7 +102,6 @@ function App() {
           <Route path="search-user" element={<SearchUserPage />} />
           <Route path="search" element={<SearchResultPage />} />
           <Route path="notifications" element={<NotificationsPage />} />
-          <Route path="report-issue" element={<ReportIssuePage />} />
         </Route>
 
         {/* ADMIN ROUTES - CHỈ SYSTEM_ADMIN TRUY CẬP ĐƯỢC */}
@@ -130,12 +115,9 @@ function App() {
         >
           <Route index element={<Navigate to="/admin/dashboard" replace />} />
           <Route path="dashboard" element={<AdminDashboardPage />} />
-          <Route path="moderation" element={<AdminModerationPage />} />
           <Route path="users" element={<AdminUsersPage />} />
           <Route path="logs" element={<AdminLogsPage />} />
           <Route path="usage" element={<AdminUsagePage />} />
-          <Route path="workspaces/deleted" element={<DeletedWorkspacesPage />} />
-          <Route path="issues" element={<IssueReportsPage />} />
           <Route path="settings" element={<SettingPage />} />
           <Route path="profile" element={<AdminProfilePage />} />
         </Route>

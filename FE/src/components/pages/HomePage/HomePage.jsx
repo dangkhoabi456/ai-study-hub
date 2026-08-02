@@ -8,7 +8,6 @@ import studyHubLogo from "../../../assets/images/StudyHubLogo.svg";
 import studyHubWhiteLogo from "../../../assets/images/StudyHubWhiteLogo.svg";
 import { useTheme } from "../../../context/ThemeContext.jsx";
 import { getMyLibraries } from "../../../utils/documentApi.js";
-import { getWorkspaces } from "../../../utils/workspaceApi.js";
 import { getMyProfile } from "../../../utils/profileApi.js";
 import { getAiSummary } from "../../../utils/aiApi.js";
 import { getPublicLibraries } from "../../../utils/publicApi.js";
@@ -84,7 +83,6 @@ function HomePage() {
   const isGuest = getStoredUserRole() === "GUEST";
   const [profileName, setProfileName] = useState("User");
   const [libraries, setLibraries] = useState([]);
-  const [workspaces, setWorkspaces] = useState([]);
   const [aiSummary, setAiSummary] = useState(null);
   const [latestChatDocument, setLatestChatDocument] = useState(null);
   const [latestStudyCard, setLatestStudyCard] = useState(null);
@@ -99,26 +97,20 @@ function HomePage() {
           if (!isMounted) return;
 
           setLibraries(Array.isArray(publicLibraries) ? publicLibraries : []);
-          setWorkspaces([]);
           return;
         }
 
-        const [libraryData, workspaceData] = await Promise.all([
-          getMyLibraries(),
-          getWorkspaces(),
-        ]);
+        const libraryData = await getMyLibraries();
 
         if (!isMounted) return;
 
         setLibraries(Array.isArray(libraryData) ? libraryData : []);
-        setWorkspaces(Array.isArray(workspaceData) ? workspaceData : []);
       } catch (error) {
         console.error("Cannot load dashboard data:", error);
 
         if (!isMounted) return;
 
         setLibraries([]);
-        setWorkspaces([]);
       }
     }
 
@@ -207,15 +199,6 @@ function HomePage() {
     [libraries]
   );
 
-  const recentWorkspaces = useMemo(
-    () =>
-      isGuest
-        ? []
-        : [...workspaces]
-            .sort((a, b) => getRecentTimestamp(b) - getRecentTimestamp(a))
-            .slice(0, 1),
-    [isGuest, workspaces]
-  );
 
   const totalDocuments = useMemo(() => {
     return libraries.reduce(
@@ -255,30 +238,19 @@ function HomePage() {
               icon: LuLibraryBig,
             },
             {
-              title: "Workspaces",
-              value: workspaces.length,
-              detail: "Collaboration rooms",
-              icon: "ti-layout-grid2",
-            },
-            {
               title: "Documents",
               value: totalDocuments,
               detail: "Across all libraries",
               icon: "ti-files",
             },
           ],
-    [isGuest, libraries.length, workspaces.length, totalDocuments],
+    [isGuest, libraries.length, totalDocuments],
   );
 
   const latestLibrary = recentLibraries[0];
-  const latestWorkspace = recentWorkspaces[0];
   const latestLibraryId = getItemId(latestLibrary);
-  const latestWorkspaceId = getItemId(latestWorkspace);
   const latestChatLibrary = libraries.find(
     (library) => String(getItemId(library)) === String(latestChatDocument?.libraryId),
-  );
-  const latestStudyWorkspace = workspaces.find(
-    (workspace) => String(getItemId(workspace)) === String(latestStudyCard?.workspaceId),
   );
   const latestStudyLibrary = libraries.find(
     (library) => String(getItemId(library)) === String(latestStudyCard?.libraryId),
@@ -304,7 +276,7 @@ function HomePage() {
 
             <div className="home_headline_block">
               <span className="home_label">
-                {isGuest ? "Public library access" : "Workspace command center"}
+                {isGuest ? "Public library access" : "Study command center"}
               </span>
               <h1>
                 {isGuest ? (
@@ -318,7 +290,7 @@ function HomePage() {
               </h1>
               <p>
                 {isGuest
-                  ? "Search and read public study collections shared by the community. Log in when you want to create libraries, use AI, or join workspaces."
+                  ? "Search and read public study collections shared by the community. Log in when you want to create libraries or use AI tools."
                   : "Continue from your latest materials, manage study spaces and start new work without leaving the dashboard."}
               </p>
             </div>
@@ -353,12 +325,12 @@ function HomePage() {
   ) : (
     <>
       <Link
-        to="/dashboard/create-workspace"
+        to="/dashboard/create-library"
         state={{ from: "/dashboard/home" }}
         className="home_btn home_btn_primary"
       >
         <HiOutlineSquaresPlus className="home_create_workspace_icon" aria-hidden="true" />
-        Create workspace
+        Create library
       </Link>
 
       <Link
@@ -428,19 +400,8 @@ function HomePage() {
 
             {!isGuest ? (
               <div className="focus_card focus_card_light">
-                <span>Recent workspace</span>
-                <h2>{latestWorkspace?.name || "No workspace opened yet"}</h2>
-                {latestWorkspace && (
-                  <Link
-                    to={
-                      latestWorkspaceId
-                        ? `/dashboard/workspaces/${latestWorkspaceId}`
-                        : "/dashboard/workspaces"
-                    }
-                  >
-                    Open workspace
-                  </Link>
-                )}
+                <span>Recent library</span>
+                <h2>{latestLibrary?.name || "No library opened yet"}</h2>
               </div>
             ) : (
               <div className="focus_card focus_card_light">
@@ -557,7 +518,7 @@ function HomePage() {
                   <i className="ti-lock"></i>
                 </div>
                 <h3>Public browsing mode</h3>
-                <p>Guest accounts can search public libraries and view shared documents. Creating libraries, workspaces, AI chat and flashcards require login.</p>
+                <p>Guest accounts can search public libraries and view shared documents. Creating libraries, AI chat and flashcards require login.</p>
                 <Link to="/register">Create account</Link>
               </div>
             </aside>
@@ -630,11 +591,6 @@ function HomePage() {
                 <h2>Latest progress</h2>
               </div>
 
-              {!isGuest && (
-                <Link to="/dashboard/workspaces" className="home_text_link compact_link">
-                  Workspaces
-                </Link>
-              )}
             </div>
 
             {latestStudyCard ? (
@@ -657,8 +613,8 @@ function HomePage() {
 
                 <dl className="study_progress_meta">
                   <div>
-                    <dt>Workspace</dt>
-                    <dd>{latestStudyWorkspace?.name || "No workspace"}</dd>
+                    <dt>Study set</dt>
+                    <dd>{latestStudyCard?.title || "Flashcards"}</dd>
                   </div>
                   <div>
                     <dt>Library</dt>

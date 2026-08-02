@@ -8,9 +8,8 @@ import {
   LuSettings,
   LuLayers,
   LuX,
-  LuCircleHelp,
 } from "react-icons/lu";
-import { HiOutlineHome, HiOutlineSquares2X2 } from "react-icons/hi2";
+import { HiOutlineHome } from "react-icons/hi2";
 import Logo from "../../../assets/logo/Logo.jsx";
 import api from "../../../utils/api.js";
 import { clearStoredSession, getStoredUser } from "../../../utils/authToken.js";
@@ -54,13 +53,6 @@ function Sidebar({ isOpen, onClose }) {
       path: "/dashboard/flashcards",
       hideForGuest: true,
     },
-    {
-      icon: HiOutlineSquares2X2,
-      label: "My workspaces",
-      path: "/dashboard/workspaces",
-      hideForGuest: true,
-    },
-    { icon: LuCircleHelp, label: "Report issues", path: "/dashboard/report-issue", hideForGuest: true },
     { icon: LuSettings, label: "Settings", path: "/dashboard/settings" },
   ];
 

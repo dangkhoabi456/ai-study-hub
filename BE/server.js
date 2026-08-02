@@ -22,10 +22,8 @@ const authRoutes = require('./src/routes/authRoutes');
 const documentRoutes = require('./src/routes/documentRoutes');
 const aiRoutes = require('./src/routes/aiRoutes');
 const adminRoutes = require('./src/routes/adminRoutes');
-const workspaceRoutes = require('./src/routes/workspaceRoutes');
 const publicRoutes = require('./src/routes/publicRoutes');
 const profileRoutes = require('./src/routes/profileRoutes');
-const issueReportRoutes = require('./src/routes/issueReportRoutes');
 
 // ─── 1. Security headers (helmet) ─────────────────────────────────────────────
 app.use(helmet({
@@ -102,10 +100,8 @@ app.use('/api/auth', authRoutes);
 app.use('/api/documents', documentRoutes);
 app.use('/api/ai', aiRoutes);
 app.use('/api/admin', adminRoutes);
-app.use('/api/workspaces', workspaceRoutes);
 app.use('/api/public', publicRoutes);
 app.use('/api/profile', profileRoutes);
-app.use('/api/issues', issueReportRoutes);
 
 // Health check
 app.get('/', (req, res) => {

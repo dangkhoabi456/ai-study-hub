@@ -170,58 +170,6 @@ async function generateText(prompt) {
 }
 
 /**
- * AI moderation for uploaded documents.
- *
- * Result:
- * {
- *   status: "APPROVED" or "REJECTED",
- *   reason: "...",
- *   suspicious_text: [...]
- * }
- */
-async function moderateDocument(text) {
-  const prompt = `
-You are an AI document moderator for a university learning platform called AI StudyHub.
-
-Decide whether this uploaded document is valid for academic study.
-
-Accept:
-- university study materials
-- lecture notes
-- programming documents
-- code documents
-- game programming documents if they are about learning programming
-
-Reject:
-- entertainment gaming content not related to study
-- inappropriate sexual content
-- irrelevant TikTok/adult links
-- spam or non-study material
-
-Return JSON only in this exact format:
-{
-  "status": "APPROVED" or "REJECTED",
-  "reason": "short reason",
-  "suspicious_text": ["text segment 1", "text segment 2"]
-}
-
-Document text:
-${String(text || "").slice(0, 12000)}
-`;
-
-  const resultText = await generateText(prompt);
-  const result = extractJson(resultText);
-
-  return {
-    status: result.status === "REJECTED" ? "REJECTED" : "APPROVED",
-    reason: result.reason || "",
-    suspicious_text: Array.isArray(result.suspicious_text)
-      ? result.suspicious_text
-      : [],
-  };
-}
-
-/**
  * Create vector embedding for document chunks or user questions.
  *
  * Supabase pgvector column is VECTOR(768), so outputDimensionality = 768.
@@ -600,14 +548,12 @@ async function validateTagsAndContent(
 
 module.exports = {
   removeChunkReferences,
-  moderateDocument,
   createEmbedding,
   createBatchEmbeddings,
   toVectorLiteral,
   answerWithContext,
   generateFlashcardsFromChunks,
   generateTagsAndName,
-  checkSensitiveContent,
   validateTagsAndContent,
   analyzeDocumentForUpload,
 };

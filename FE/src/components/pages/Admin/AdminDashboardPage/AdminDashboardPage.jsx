@@ -5,9 +5,7 @@ import {
   getActivityLogs,
   getAdminDashboard,
   getAdminUsers,
-  getModerationDocuments,
   getUsageStats,
-  reviewDocument,
 } from "../../../../utils/adminApi";
 import "./AdminDashboardPage.css";
 
@@ -30,6 +28,11 @@ function getDisplayName(user) {
   );
 }
 
+function getLogTime(value) {
+  if (!value) return "No timestamp";
+  return new Date(value).toLocaleString();
+}
+
 function repairTextEncoding(value) {
   const text = String(value || "");
 
@@ -45,25 +48,6 @@ function repairTextEncoding(value) {
   } catch {
     return text;
   }
-}
-
-function getLogTime(value) {
-  if (!value) return "No timestamp";
-  return new Date(value).toLocaleString();
-}
-
-function getDocumentReason(document) {
-  const reason = document.ai_reject_reason;
-  if (!reason) return "Document needs admin review.";
-  if (typeof reason === "string") return repairTextEncoding(reason);
-  return repairTextEncoding(
-    reason.reason || reason.error || "Document needs admin review.",
-  );
-}
-
-function getQueueSeverity(status) {
-  if (status === "FLAGGED" || status === "REJECTED") return "critical";
-  return "warning";
 }
 
 function getUsagePercent(value, limit) {
@@ -127,7 +111,6 @@ function getBaseChartOptions(categories = []) {
 function AdminDashboardPage() {
   const navigate = useNavigate();
   const [stats, setStats] = useState(null);
-  const [queue, setQueue] = useState([]);
   const [users, setUsers] = useState([]);
   const [logs, setLogs] = useState([]);
   const [usage, setUsage] = useState({ quotaUsage: [], aiUsage: [] });
@@ -142,17 +125,15 @@ function AdminDashboardPage() {
       setIsLoading(true);
       setError("");
 
-      const [dashboardData, moderationData, userData, logData, usageData] =
+      const [dashboardData, userData, logData, usageData] =
         await Promise.all([
           getAdminDashboard(),
-          getModerationDocuments(),
           getAdminUsers(),
           getActivityLogs(),
           getUsageStats(),
         ]);
 
       setStats(dashboardData);
-      setQueue(moderationData || []);
       setUsers(userData || []);
       setLogs(logData || []);
       setSelectedLog((logData || [])[0] || null);
@@ -212,17 +193,13 @@ function AdminDashboardPage() {
   );
 
   const activeUsers = users.filter((user) => user.status === "ACTIVE").length;
-  const moderationQueueCount = queue.length;
   const avgQuotaUsage =
     quotaRows.length === 0
       ? 0
       : Math.round(quotaRows.reduce((sum, item) => sum + item.percent, 0) / quotaRows.length);
   const aiCriticalUsers = aiRows.filter((item) => item.risk === "critical").length;
   const totalAiTokens = stats?.totalTokensToday || 0;
-  const criticalModerationCount = queue.filter(
-    (item) => getQueueSeverity(item.status) === "critical",
-  ).length;
-  const attentionCount = moderationQueueCount + aiCriticalUsers;
+  const attentionCount = aiCriticalUsers;
 
   const usageTimeline = useMemo(() => {
     const byDate = new Map();
@@ -315,30 +292,18 @@ function AdminDashboardPage() {
       },
       operations: {
         options: {
-          ...getBaseChartOptions(["Documents", "Moderation", "Attention", "AI chats"]),
+          ...getBaseChartOptions(["Documents", "Quota alerts", "AI chats"]),
           chart: { ...base.chart, type: "bar" },
           colors: [CHART_COLORS.orange],
           legend: { show: false },
           plotOptions: { bar: { horizontal: true, borderRadius: 4, barHeight: "48%", distributed: true } },
-          xaxis: { categories: ["Documents", "Moderation", "Attention", "AI chats"], labels: { style: { colors: "#71675b", fontSize: "10px" } } },
+          xaxis: { categories: ["Documents", "Quota alerts", "AI chats"], labels: { style: { colors: "#71675b", fontSize: "10px" } } },
           yaxis: { labels: { style: { colors: "#71675b", fontSize: "11px", fontWeight: 700 } } },
         },
-        series: [{ name: "Total", data: [stats?.totalDocuments || 0, moderationQueueCount, attentionCount, stats?.totalAiChatsToday || 0] }],
+        series: [{ name: "Total", data: [stats?.totalDocuments || 0, attentionCount, stats?.totalAiChatsToday || 0] }],
       },
     };
-  }, [activeUsers, attentionCount, moderationQueueCount, stats, usageTimeline, users.length]);
-
-  async function resolveModerationCase(documentId, action) {
-    const decision = action === "Approved" ? "APPROVE" : "KEEP_REJECTED";
-
-    try {
-      await reviewDocument(documentId, decision, `${action} from admin dashboard.`);
-      setQueue((current) => current.filter((item) => item.id !== documentId));
-      setNotice(`${action} completed for selected document.`);
-    } catch (err) {
-      setNotice(err.response?.data?.message || "Could not save moderation decision.");
-    }
-  }
+  }, [activeUsers, attentionCount, stats, usageTimeline, users.length]);
 
   return (
     <section className="admin-dashboard">
@@ -381,55 +346,13 @@ function AdminDashboardPage() {
             <Chart options={chartData.users.options} series={chartData.users.series} type="donut" height={250} />
           </article>
           <article className="admin-dashboard__chart-card admin-dashboard__chart-card--wide">
-            <header><div><span>Operational workload</span><strong>{attentionCount} need attention</strong></div><small>{criticalModerationCount} critical · {avgQuotaUsage}% average quota</small></header>
+            <header><div><span>Operational workload</span><strong>{attentionCount} need attention</strong></div><small>{avgQuotaUsage}% average quota</small></header>
             <Chart options={chartData.operations.options} series={chartData.operations.series} type="bar" height={250} />
           </article>
         </section>
 
         <section className="admin-dashboard__content-grid">
           <div className="admin-dashboard__main-stack">
-            <section className="admin-dashboard__panel">
-              <div className="admin-dashboard__panel-header">
-                <div>
-                  <h2>Moderation queue</h2>
-                  <p>Documents flagged by AI that need a decision.</p>
-                </div>
-                <button
-                  type="button"
-                  className="admin-dashboard__outline-btn"
-                  onClick={() => navigate("/admin/moderation")}
-                >
-                  Open moderation
-                </button>
-              </div>
-
-              <div className="admin-dashboard__queue-list">
-                {queue.length === 0 ? (
-                  <div className="admin-dashboard__empty-state">
-                    <i className="ti-check-box" />
-                    <h3>No pending cases</h3>
-                    <p>All moderation cases have been handled.</p>
-                  </div>
-                ) : (
-                  queue.map((item) => (
-                    <article className="admin-dashboard__queue-item" key={item.id}>
-                      <div className={`admin-dashboard__queue-icon ${getQueueSeverity(item.status) === "critical" ? "is-critical" : ""}`}>
-                        <i className="ti-alert" />
-                      </div>
-                      <div>
-                        <strong>{repairTextEncoding(item.title)}</strong>
-                        <p>{getDocumentReason(item)}</p>
-                        <span>Uploader: {getDisplayName(item.uploader)} · Status {item.status}</span>
-                      </div>
-                      <span className={`admin-dashboard__severity is-${getQueueSeverity(item.status)}`}>{getQueueSeverity(item.status)}</span>
-                      <button type="button" onClick={() => resolveModerationCase(item.id, "Approved")}>Approve</button>
-                      <button type="button" onClick={() => resolveModerationCase(item.id, "Removed")}>Remove</button>
-                    </article>
-                  ))
-                )}
-              </div>
-            </section>
-
             <section className="admin-dashboard__dual-grid">
               <div className="admin-dashboard__panel">
                 <div className="admin-dashboard__panel-header compact">
@@ -516,37 +439,19 @@ function AdminDashboardPage() {
 
             <section className="admin-dashboard__panel admin-dashboard__logs-panel">
               <div className="admin-dashboard__panel-header compact">
-                <div>
-                  <h2>Recent logs</h2>
-                  <p>{visibleLogs.length} entries shown</p>
-                </div>
+                <div><h2>Recent logs</h2><p>{visibleLogs.length} entries shown</p></div>
               </div>
-
               <div className="admin-dashboard__log-list">
                 {visibleLogs.map((log) => (
-                  <button
-                    key={log.id}
-                    type="button"
-                    className={`admin-dashboard__log-item ${selectedLog?.id === log.id ? "is-selected" : ""}`}
-                    onClick={() => setSelectedLog(log)}
-                  >
+                  <button key={log.id} type="button" className={`admin-dashboard__log-item ${selectedLog?.id === log.id ? "is-selected" : ""}`} onClick={() => setSelectedLog(log)}>
                     <span className="admin-dashboard__log-dot is-ai" />
-                    <div>
-                      <strong>{log.action_type}</strong>
-                      <small>{getDisplayName(log.actor)} · {getLogTime(log.created_at)}</small>
-                    </div>
+                    <div><strong>{log.action_type}</strong><small>{getDisplayName(log.actor)} · {getLogTime(log.created_at)}</small></div>
                   </button>
                 ))}
               </div>
-
-              {selectedLog && (
-                <div className="admin-dashboard__log-detail">
-                  <span>Selected log</span>
-                  <strong>{selectedLog.id}</strong>
-                  <p>{selectedLog.action_type} on {selectedLog.entity_type}</p>
-                </div>
-              )}
+              {selectedLog && <div className="admin-dashboard__log-detail"><span>Selected log</span><strong>{selectedLog.id}</strong><p>{selectedLog.action_type} on {selectedLog.entity_type}</p></div>}
             </section>
+
           </aside>
         </section>
       </main>
