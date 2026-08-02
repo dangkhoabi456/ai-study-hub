@@ -170,12 +170,10 @@ function CreateLibraryPage() {
       const isPublic = visibility === "public";
 
       // 1. GỌI API ĐẨY DỮ LIỆU LÊN SUPABASE
-      // Cung cấp cả 2 biến is_public và share_on_profile độc lập theo logic của anh/chị
       const response = await api.post("/documents/libraries", {
         name: trimmedLibraryName,
         description: previewDescription,
         is_public: isPublic,
-        share_on_profile: isPublic // Mặc định khi tạo mới: nếu public thì share lên profile luôn
       });
 
       // Lấy data chuẩn do Supabase tạo ra
@@ -191,7 +189,6 @@ function CreateLibraryPage() {
             description: createdLib.description || "",
             visibility: createdLib.is_public ? "public" : "private",
             is_public: createdLib.is_public,
-            share_on_profile: createdLib.share_on_profile,
             documents: 0,
             stars: 0,
             downloads: 0,
@@ -235,7 +232,7 @@ function CreateLibraryPage() {
               </article>
               <article>
                 <strong>02</strong>
-                <span>Choose visibility</span>
+                <span>Publishing preference</span>
               </article>
               <article>
                 <strong>03</strong>
@@ -359,46 +356,26 @@ function CreateLibraryPage() {
             <div className="form_section_header">
               <div>
                 <span className="section_number">02</span>
-                <h2>Privacy & visibility</h2>
-                <p>Decide whether the library can be discovered by others.</p>
+                <h2>Publishing</h2>
+                <p>Control whether this library can be published publicly.</p>
               </div>
             </div>
 
-            <div className="visibility_options">
-              <label
-                className={`visibility_card ${visibility === "public" ? "selected" : ""}`}
-              >
-                <input
-                  type="radio"
-                  name="visibility"
-                  value="public"
-                  checked={visibility === "public"}
-                  onChange={(e) => setVisibility(e.target.value)}
-                />
-                <span className="visibility_icon"><i className="ti-world" /></span>
-                <div>
-                  <h3>Public</h3>
-                  <p>Visible to members and searchable inside the University Hub.</p>
-                </div>
-              </label>
-
-              <label
-                className={`visibility_card ${visibility === "private" ? "selected" : ""}`}
-              >
-                <input
-                  type="radio"
-                  name="visibility"
-                  value="private"
-                  checked={visibility === "private"}
-                  onChange={(e) => setVisibility(e.target.value)}
-                />
-                <span className="visibility_icon"><i className="ti-lock" /></span>
-                <div>
-                  <h3>Private</h3>
-                  <p>Only visible to you and invited collaborators. Hidden from search.</p>
-                </div>
-              </label>
-            </div>
+            <label className="publish_control">
+              <span className="publish_control_copy">
+                <strong>Allow publish</strong>
+              </span>
+              <input
+                type="checkbox"
+                checked={visibility === "public"}
+                onChange={(event) =>
+                  setVisibility(event.target.checked ? "public" : "private")
+                }
+              />
+              <span className="publish_switch" aria-hidden="true">
+                <span />
+              </span>
+            </label>
           </section>
 
           <div className="create_library_actions">
