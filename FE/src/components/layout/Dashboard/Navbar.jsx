@@ -3,24 +3,20 @@ import { useEffect, useMemo, useState } from "react";
 import {
   HiOutlineBell,
   HiOutlinePlus,
-  HiOutlineSquaresPlus,
 } from "react-icons/hi2";
 import { LuBookPlus, LuMenu } from "react-icons/lu";
 import {
   getNotificationSettings,
   getNotifications,
   markAllNotificationsAsRead,
-  mergeAppNotifications,
 } from "../../../utils/notificationStore.js";
 import { searchUsers } from "../../../utils/searchApi.js";
 import { getMyLibraries } from "../../../utils/documentApi.js";
-import { getMyWorkspaceNotifications, getWorkspaces, markWorkspaceNotificationsAsReadApi, respondToInvitation } from "../../../utils/workspaceApi.js";
 import { getMyProfile } from "../../../utils/profileApi.js";
 import { getPublicLibraries } from "../../../utils/publicApi.js";
 import defaultAvatar from "../../../assets/images/account.png";
 import { getStoredUser } from "../../../utils/authToken.js";
 import { getUserStoredItem, setUserStoredItem } from "../../../utils/userStorage.js";
-import { WorkspaceInviteModal } from "./WorkspaceInviteModal.jsx";
 
 function getStoredUserRole() {
   try {
@@ -76,34 +72,10 @@ function saveRecentLibrary(library) {
   );
 }
 
-function saveRecentWorkspace(workspace) {
-  const currentRecentWorkspaces = JSON.parse(
-    getUserStoredItem("aiStudyHubRecentWorkspaces") || "[]"
-  );
-
-  const recentWorkspace = {
-    id: workspace.id,
-    name: workspace.name || "Untitled Workspace",
-    documents: Number(workspace.documents) || 0,
-    icon: workspace.icon || "ti-layout-grid2",
-    visitedAt: Date.now(),
-  };
-
-  const nextRecentWorkspaces = [
-    recentWorkspace,
-    ...currentRecentWorkspaces.filter((item) => item.id !== workspace.id),
-  ].slice(0, 3);
-
-  setUserStoredItem(
-    "aiStudyHubRecentWorkspaces",
-    JSON.stringify(nextRecentWorkspaces)
-  );
-}
-
 function Navbar({
   onOpenSidebar,
   profilePath = "/dashboard/profile",
-  searchPlaceholder = "Search library or workspace...",
+  searchPlaceholder = "Search users or libraries...",
 }) {
   const navigate = useNavigate();
   const isLoggedIn = !!getStoredUser();
@@ -115,24 +87,10 @@ function Navbar({
 
 
   const [notifications, setNotifications] = useState(() => getNotifications());
-  const [selectedInviteNotification, setSelectedInviteNotification] = useState(null);
 
   const [notificationSettings, setNotificationSettings] = useState(() =>
     getNotificationSettings()
   );
-
-  const handleRespondInvite = async (invitationId, action) => {
-    try {
-      const res = await respondToInvitation(invitationId, action);
-      const updatedNotifications = await getMyWorkspaceNotifications();
-      setNotifications(mergeAppNotifications(updatedNotifications || []));
-      if (res?.action === "ACCEPTED" && res?.workspaceId) {
-        navigate(`/dashboard/workspaces/${res.workspaceId}`);
-      }
-    } catch (err) {
-      console.error("Could not respond to invitation:", err);
-    }
-  };
 
   useEffect(() => {
     function syncNotifications() {
@@ -159,89 +117,6 @@ function Navbar({
       window.removeEventListener("storage", syncNotifications);
     };
   }, []);
-
-  useEffect(() => {
-    if (isGuest) return undefined;
-
-    let isMounted = true;
-    let isRequestInFlight = false;
-    let lastSyncedAt = 0;
-    let nextAllowedSyncAt = 0;
-
-    const POLL_INTERVAL_MS = 60 * 1000;
-    const FOCUS_REFRESH_STALE_MS = 30 * 1000;
-
-    function getRetryDelayMs(error) {
-      const retryAfter = error?.response?.headers?.["retry-after"];
-      const retryAfterSeconds = Number(retryAfter);
-
-      if (Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0) {
-        return Math.ceil(retryAfterSeconds * 1000);
-      }
-
-      const retryAfterDateMs = Date.parse(retryAfter);
-      if (Number.isFinite(retryAfterDateMs)) {
-        return Math.max(0, retryAfterDateMs - Date.now());
-      }
-
-      return POLL_INTERVAL_MS;
-    }
-
-    async function syncServerNotifications() {
-      if (
-        !isMounted ||
-        document.visibilityState !== "visible" ||
-        isRequestInFlight ||
-        Date.now() < nextAllowedSyncAt
-      ) {
-        return;
-      }
-
-      isRequestInFlight = true;
-      try {
-        const serverNotifications = await getMyWorkspaceNotifications();
-        if (isMounted) {
-          setNotifications(mergeAppNotifications(serverNotifications || []));
-          lastSyncedAt = Date.now();
-        }
-      } catch (error) {
-        const status = error?.response?.status;
-
-        if (status === 429) {
-          nextAllowedSyncAt = Date.now() + getRetryDelayMs(error);
-          console.warn("Notification sync is rate-limited; waiting before retrying.");
-          return;
-        }
-
-        if (status === 401) {
-          // The API interceptor refreshes or clears the session. Do not keep
-          // polling while that authentication flow is in progress or failed.
-          nextAllowedSyncAt = Number.POSITIVE_INFINITY;
-          console.warn("Notification sync stopped because the session is no longer valid.");
-          return;
-        }
-
-        console.error("Failed to sync workspace notifications:", error);
-      } finally {
-        isRequestInFlight = false;
-      }
-    }
-
-    syncServerNotifications();
-    const intervalId = window.setInterval(syncServerNotifications, POLL_INTERVAL_MS);
-    const handleWindowFocus = () => {
-      if (Date.now() - lastSyncedAt >= FOCUS_REFRESH_STALE_MS) {
-        syncServerNotifications();
-      }
-    };
-    window.addEventListener("focus", handleWindowFocus);
-
-    return () => {
-      isMounted = false;
-      window.clearInterval(intervalId);
-      window.removeEventListener("focus", handleWindowFocus);
-    };
-  }, [isGuest, isLoggedIn]);
 
   useEffect(() => {
     const keyword = searchValue.trim();
@@ -310,7 +185,6 @@ function Navbar({
   ).length;
 
   const [libraries, setLibraries] = useState([]);
-  const [workspaces, setWorkspaces] = useState([]);
 
   useEffect(() => {
     if (!isLoggedIn) return;
@@ -322,19 +196,16 @@ function Navbar({
           const publicLibraries = await getPublicLibraries();
           if (isMounted) {
             setLibraries(publicLibraries || []);
-            setWorkspaces([]);
           }
           return;
         }
 
-        const [publicLibraries, myLibraries, wspaces] = await Promise.all([
+        const [publicLibraries, myLibraries] = await Promise.all([
           getPublicLibraries(),
-          getMyLibraries(),
-          getWorkspaces()
+          getMyLibraries()
         ]);
         if (isMounted) {
           setLibraries(mergeLibraries(publicLibraries, myLibraries));
-          setWorkspaces(wspaces || []);
         }
       } catch (err) {
         console.error("Failed to load search data:", err);
@@ -373,25 +244,6 @@ function Navbar({
         data: library,
       }));
 
-    const matchedWorkspaces = workspaces
-      .filter((workspace) => {
-        const workspaceName = workspace.name || "";
-        const workspaceDescription = workspace.description || "";
-
-        return (
-          workspaceName.toLowerCase().includes(keyword) ||
-          workspaceDescription.toLowerCase().includes(keyword)
-        );
-      })
-      .map((workspace) => ({
-        id: workspace.id,
-        type: "workspace",
-        title: workspace.name || "Untitled Workspace",
-        description: workspace.description || `${Number(workspace.documents) || 0} documents`,
-        icon: workspace.icon || "ti-layout-grid2",
-        data: workspace,
-      }));
-
     const userResults = (keyword.length >= 2 ? matchedUsers : []).map((user) => ({
       id: user.id,
       type: "user",
@@ -401,11 +253,11 @@ function Navbar({
       data: user,
     }));
 
-    return [...userResults, ...matchedLibraries, ...matchedWorkspaces].slice(
+    return [...userResults, ...matchedLibraries].slice(
       0,
       8,
     );
-  }, [searchValue, libraries, workspaces, matchedUsers]);
+  }, [searchValue, libraries, matchedUsers]);
 
   function handleOpenSearchResult(result) {
     if (result.type === "library") {
@@ -418,16 +270,6 @@ function Navbar({
           library: isGuest
             ? { ...result.data, isPublicView: true, visibility: "public" }
             : result.data,
-          from: window.location.pathname,
-        },
-      });
-    }
-
-    if (result.type === "workspace" && !isGuest) {
-      saveRecentWorkspace(result.data);
-      navigate(`/dashboard/workspaces/${result.id}`, {
-        state: {
-          workspace: result.data,
           from: window.location.pathname,
         },
       });
@@ -486,7 +328,7 @@ function Navbar({
             {searchResults.length === 0 ? (
               <div className="global_search_empty">
                 <i className="ti-search"></i>
-                <p>No user, library or workspace found.</p>
+                <p>No user or library found.</p>
               </div>
             ) : (
               searchResults.map((result) => (
@@ -553,10 +395,6 @@ function Navbar({
                   Import library
                 </Link>
 
-                <Link to="/dashboard/create-workspace">
-                  <HiOutlineSquaresPlus aria-hidden="true" />
-                  Create workspace
-                </Link>
               </div>
             </div>
 
@@ -575,24 +413,14 @@ function Navbar({
                 <div className="notification_header">
                   <div>
                     <strong>Notifications</strong>
-                    <p>Recent workspace activity</p>
+                    <p>Recent activity</p>
                   </div>
 
                   <button
                     type="button"
-                    onClick={async () => {
-                      try {
-                        await markWorkspaceNotificationsAsReadApi();
-                      } catch (err) {
-                        console.error("Failed to mark notifications read in DB:", err);
-                      }
+                    onClick={() => {
                       markAllNotificationsAsRead();
-                      try {
-                        const updated = await getMyWorkspaceNotifications();
-                        setNotifications(mergeAppNotifications(updated || []));
-                      } catch {
-                        setNotifications(getNotifications());
-                      }
+                      setNotifications(getNotifications());
                     }}
                   >
                     Mark all read
@@ -611,83 +439,7 @@ function Navbar({
                       <p>No notifications yet.</p>
                     </div>
                   ) : (
-                    notifications.map((notification) => {
-                      if (notification.isInvitation) {
-                        return (
-                          <div
-                            key={notification.id}
-                            className={`notification_item invitation ${
-                              notification.isRead ? "" : "unread"
-                            }`}
-                            style={{ cursor: "pointer", display: "flex", alignItems: "center", gap: "10px" }}
-                            onClick={() => setSelectedInviteNotification(notification)}
-                          >
-                            <div className="notification_icon">
-                              <i className="ti-email"></i>
-                            </div>
-
-                            <div style={{ flex: 1, textAlign: "left" }}>
-                              <strong>{notification.title}</strong>
-                              <p>{notification.message}</p>
-                              <span>{notification.createdAt}</span>
-                            </div>
-
-                            {notification.status === "PENDING" && (
-                              <div
-                                style={{ display: "flex", gap: "6px" }}
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <button
-                                  type="button"
-                                  style={{
-                                    border: "none",
-                                    background: "#16a34a",
-                                    color: "#fff",
-                                    width: "28px",
-                                    height: "28px",
-                                    borderRadius: "50%",
-                                    cursor: "pointer",
-                                    fontWeight: "bold",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                  }}
-                                  title="Đồng ý"
-                                  onClick={() =>
-                                    handleRespondInvite(notification.logId, "accept")
-                                  }
-                                >
-                                  ✓
-                                </button>
-                                <button
-                                  type="button"
-                                  style={{
-                                    border: "none",
-                                    background: "#ef4444",
-                                    color: "#fff",
-                                    width: "28px",
-                                    height: "28px",
-                                    borderRadius: "50%",
-                                    cursor: "pointer",
-                                    fontWeight: "bold",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                  }}
-                                  title="Từ chối"
-                                  onClick={() =>
-                                    handleRespondInvite(notification.logId, "reject")
-                                  }
-                                >
-                                  ✕
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        );
-                      }
-
-                      return (
+                    notifications.map((notification) => (
                         <button
                           type="button"
                           key={notification.id}
@@ -710,8 +462,7 @@ function Navbar({
                             <span>{notification.createdAt}</span>
                           </div>
                         </button>
-                      );
-                    })
+                    ))
                   )}
                 </div>
 
@@ -724,14 +475,6 @@ function Navbar({
                 </button>
               </div>
             </div>
-
-            {selectedInviteNotification && (
-              <WorkspaceInviteModal
-                invitation={selectedInviteNotification}
-                onClose={() => setSelectedInviteNotification(null)}
-                onRespond={handleRespondInvite}
-              />
-            )}
 
           </>
         )}

@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { searchUsers } from "../../../utils/searchApi";
-import { getWorkspaces } from "../../../utils/workspaceApi";
 import { getMyLibraries } from "../../../utils/documentApi.js";
 import { getPublicLibraries } from "../../../utils/publicApi.js";
 import { getStoredUser } from "../../../utils/authToken.js";
@@ -11,7 +10,6 @@ const FILTERS = [
   { value: "all", label: "All", icon: "ti-search" },
   { value: "user", label: "Users", icon: "ti-user" },
   { value: "library", label: "Libraries", icon: "ti-archive" },
-  { value: "workspace", label: "Workspaces", icon: "ti-layout-grid2" },
 ];
 
 function getStoredUserRole() {
@@ -67,7 +65,6 @@ function SearchResultPage() {
   const isGuest = getStoredUserRole() === "GUEST";
   const effectiveFilter = activeFilter;
   const [users, setUsers] = useState([]);
-  const [workspaces, setWorkspaces] = useState([]);
   const [libraries, setLibraries] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState("");
@@ -81,16 +78,14 @@ function SearchResultPage() {
         setIsLoading(true);
         setError("");
 
-        const [matchedUsers, joinedWorkspaces, publicLibraries, myLibraries] = await Promise.all([
+        const [matchedUsers, publicLibraries, myLibraries] = await Promise.all([
           query.trim().length >= 2 ? searchUsers(query.trim()) : [],
-          !isGuest ? getWorkspaces().catch(() => []) : [],
           getPublicLibraries().catch(() => []),
           !isGuest ? getMyLibraries().catch(() => []) : [],
         ]);
 
         if (!isMounted) return;
         setUsers(matchedUsers || []);
-        setWorkspaces(joinedWorkspaces || []);
         setLibraries(
           isGuest
             ? publicLibraries || []
@@ -99,7 +94,6 @@ function SearchResultPage() {
       } catch (requestError) {
         if (!isMounted) return;
         setUsers([]);
-        setWorkspaces([]);
         setLibraries([]);
         setError(
           requestError.response?.data?.message ||
@@ -158,32 +152,8 @@ function SearchResultPage() {
         },
       }));
 
-    const workspaceResults = isGuest
-      ? []
-      : workspaces
-      .filter((workspace) =>
-        normalize(
-          `${workspace.name} ${workspace.description} ${workspace.role}`,
-        ).includes(keyword),
-      )
-      .map((workspace) => ({
-        id: workspace.id,
-        type: "workspace",
-        title: workspace.name || "Untitled Workspace",
-        subtitle: workspace.role
-          ? `Joined as ${workspace.role}`
-          : "Joined workspace",
-        description:
-          workspace.description ||
-          "A collaborative workspace you have joined.",
-        badge: workspace.visibility || "Workspace",
-        icon: workspace.icon || "ti-layout-grid2",
-        to: `/dashboard/workspaces/${workspace.id}`,
-        state: { workspace, from: `/dashboard/search?q=${query}` },
-      }));
-
-    return [...userResults, ...libraryResults, ...workspaceResults];
-  }, [isGuest, libraries, query, users, workspaces]);
+    return [...userResults, ...libraryResults];
+  }, [isGuest, libraries, query, users]);
 
   const filteredResults =
     effectiveFilter === "all"
@@ -197,7 +167,7 @@ function SearchResultPage() {
           ...counts,
           [result.type]: counts[result.type] + 1,
         }),
-        { all: results.length, user: 0, library: 0, workspace: 0 },
+        { all: results.length, user: 0, library: 0 },
       ),
     [results],
   );
@@ -223,7 +193,7 @@ function SearchResultPage() {
         <p>
           {isGuest
             ? "Guest search includes public libraries and visible user profiles."
-            : "Find people, public libraries, your private libraries, and workspaces you have joined."}
+            : "Find people, public libraries, and your private libraries."}
         </p>
       </header>
 

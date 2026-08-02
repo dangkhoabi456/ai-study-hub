@@ -4,14 +4,12 @@ import {
   LuMenu,
   LuSearch,
 } from "react-icons/lu";
-import { getModerationDocuments } from "../../../../utils/adminApi.js";
 import { getStoredUser } from "../../../../utils/authToken.js";
 import { getMyProfile } from "../../../../utils/profileApi.js";
 import defaultAvatar from "../../../../assets/images/account.png";
 
 const PAGE_LABELS = {
   dashboard: "System overview",
-  moderation: "AI moderation",
   users: "User management",
   logs: "Activity logs",
   usage: "Usage analytics",
@@ -25,22 +23,16 @@ function AdminNavbar({ onOpenSidebar }) {
   const searchInputRef = useRef(null);
   const [searchValue, setSearchValue] = useState("");
   const [avatar, setAvatar] = useState("");
-  const [moderationCases, setModerationCases] = useState([]);
 
   const storedUser = useMemo(() => getStoredUser() || {}, []);
   const currentSegment = location.pathname.split("/").filter(Boolean).at(-1) || "dashboard";
   const currentPage = PAGE_LABELS[currentSegment] || "Administration";
-  const needsAttention = moderationCases.length > 0;
 
   useEffect(() => {
     let mounted = true;
-    Promise.all([
-      getMyProfile().catch(() => null),
-      getModerationDocuments().catch(() => []),
-    ]).then(([profile, cases]) => {
+    getMyProfile().catch(() => null).then((profile) => {
       if (!mounted) return;
       setAvatar(profile?.avatar_url || storedUser?.avatar_url || "");
-      setModerationCases(cases || []);
     });
     return () => { mounted = false; };
   }, [storedUser]);
@@ -88,9 +80,9 @@ function AdminNavbar({ onOpenSidebar }) {
       </form>
 
       <div className="admin_command_bar__right">
-        <div className="admin_command_bar__health" title={needsAttention ? "Moderation cases need attention" : "All monitored services are operational"}>
-          <i className={needsAttention ? "is-warning" : ""} />
-          <span>{needsAttention ? "Needs attention" : "Operational"}</span>
+        <div className="admin_command_bar__health" title="All monitored services are operational">
+          <i />
+          <span>Operational</span>
         </div>
 
         <Link

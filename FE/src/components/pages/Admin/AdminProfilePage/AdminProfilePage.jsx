@@ -127,7 +127,6 @@ function AdminProfilePage() {
             <header><div><LuShieldCheck /><span><h2>Admin access</h2><p>Current role and permissions.</p></span></div></header>
             <strong className="admin-profile-page__role">{roleLabel}</strong>
             <ul>
-              <li><LuCheck /> Review moderated documents</li>
               <li><LuCheck /> Manage user accounts</li>
               <li><LuCheck /> View usage and audit logs</li>
               <li><LuCheck /> Access system settings</li>
@@ -137,7 +136,7 @@ function AdminProfilePage() {
           <section className="admin-profile-page__card">
             <header><div><LuBell /><span><h2>Preferences</h2><p>Administrative notifications.</p></span></div></header>
             <label className="admin-profile-page__toggle-row">
-              <span><strong>Email alerts</strong><small>Security and moderation updates</small></span>
+              <span><strong>Email alerts</strong><small>Security and account updates</small></span>
               <input type="checkbox" checked={emailAlerts} onChange={(event) => setEmailAlerts(event.target.checked)} />
               <i aria-hidden="true" />
             </label>

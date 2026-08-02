@@ -9,11 +9,9 @@ const {
 } = require("../services/textExtractService");
 
 const {
-  moderateDocument,
   createEmbedding,
   createBatchEmbeddings,
   toVectorLiteral,
-  checkSensitiveContent,
   validateTagsAndContent,
   analyzeDocumentForUpload,
 } = require("../services/aiService");
@@ -100,14 +98,6 @@ async function getWorkspaceDocumentUploadAccess(workspaceId, userId) {
   };
 }
 
-function isSensitiveClassification(classification) {
-  const normalizedClassification = String(classification || "")
-    .trim()
-    .toUpperCase();
-
-  return normalizedClassification === "SEVERE" || normalizedClassification === "MILD";
-}
-
 async function processDocumentWithAI(
   file,
   documentId,
@@ -132,20 +122,6 @@ async function processDocumentWithAI(
 
     let status = overrideStatus || "APPROVED";
     let aiRejectReason = overrideRejectReason || null;
-
-    if (!overrideStatus) {
-      const moderation = await moderateDocument(extractedText);
-
-      if (moderation.status === "REJECTED") {
-        await supabase
-          .from("documents")
-          .update({ status: "REJECTED", ai_reject_reason: moderation })
-          .eq("id", documentId);
-
-        return { status: "REJECTED", reason: moderation.reason, chunkCount: 0 };
-      }
-    }
-
 
       const chunks = splitTextIntoChunks(extractedText);
 
@@ -220,10 +196,7 @@ async function processWorkspaceDocumentInBackground(
 ) {
   try {
     const extractedText = await extractTextFromFile(file);
-    const [moderation, tagValidation] = await Promise.all([
-      moderateDocument(extractedText),
-      validateTagsAndContent(extractedText, file.originalname, userTags),
-    ]);
+    const tagValidation = await validateTagsAndContent(extractedText, file.originalname, userTags);
 
     if (!tagValidation.isValid) {
       await supabase
@@ -239,28 +212,12 @@ async function processWorkspaceDocumentInBackground(
       return;
     }
 
-    const isFlagged = moderation.status === "REJECTED";
-    if (isFlagged) {
-      const { error: waitingUploadError } = await supabase.storage
-        .from(WAITING_BUCKET)
-        .upload(storagePath, file.buffer, {
-          contentType: file.mimetype || "application/octet-stream",
-          upsert: true,
-        });
-      if (waitingUploadError) throw waitingUploadError;
-
-      const { error: sourceRemoveError } = await supabase.storage
-        .from(BUCKET)
-        .remove([storagePath]);
-      if (sourceRemoveError) throw sourceRemoveError;
-    }
-
     await processDocumentWithAI(
       file,
       documentId,
       extractedText,
-      isFlagged ? "FLAGGED" : "PENDING",
-      isFlagged ? moderation : null,
+      "PENDING",
+      null,
     );
   } catch (error) {
     console.error("Background workspace document validation failed:", error);
@@ -693,18 +650,8 @@ exports.uploadDocuments = async (req, res) => {
       }
     }
 
-    // A sensitive document must still reach the admin moderation queue.
-    // Tag validation is advisory for flagged files; blocking here would stop
-    // the document before it can be saved in the waiting bucket for review.
     for (const processedData of processedFilesData) {
-      const isFlaggedForAdmin = isSensitiveClassification(
-        processedData.sensitivity?.classification,
-      );
-
-      if (
-        !isFlaggedForAdmin &&
-        !processedData.tagValidationResult.isValid
-      ) {
+      if (!processedData.tagValidationResult.isValid) {
         return res.status(400).json({
           status: "error",
           code: "TAG_VALIDATION_FAILED",
@@ -751,13 +698,12 @@ exports.uploadDocuments = async (req, res) => {
       processedFilesData,
       FILE_UPLOAD_CONCURRENCY,
       async (processedData) => {
-      const { file, fileIndex, extractedText, sensitivity } = processedData;
+      const { file, fileIndex, extractedText } = processedData;
 
       const safeFileName = sanitizeFileName(file.originalname);
       const storagePath = `${userID}/${Date.now()}-${crypto.randomUUID()}-${safeFileName}`;
 
-      const isFlagged = isSensitiveClassification(sensitivity.classification);
-      const targetBucket = isFlagged ? WAITING_BUCKET : BUCKET;
+      const targetBucket = BUCKET;
 
       const { error: uploadError } = await supabase.storage
         .from(targetBucket)
@@ -770,17 +716,6 @@ exports.uploadDocuments = async (req, res) => {
       // Xác định status và reject reason dựa trên mức độ nhạy cảm
       let status = workspaceId ? "PENDING" : "APPROVED";
       let aiRejectReason = null;
-
-      if (isFlagged) {
-        status = "FLAGGED";
-        aiRejectReason = {
-          reason: `Contains ${sensitivity.classification.toLowerCase()} inappropriate language`,
-          word: sensitivity.word,
-          classification: sensitivity.classification,
-          suspicious_text: sensitivity.suspicious_text || (sensitivity.word ? `Found sensitive term "${sensitivity.word}" in document content.` : "Inappropriate content detected."),
-          bucket: WAITING_BUCKET
-        };
-      }
 
       // Lưu thông tin vào DB, bao gồm cả library_id
       const { data: document, error: insertError } = await supabase
@@ -800,38 +735,17 @@ exports.uploadDocuments = async (req, res) => {
 
       if (insertError) throw insertError;
 
-      // Nếu tài liệu bị gắn cờ nhạy cảm, log activity để thông báo cho user & admin
-      if (status === "FLAGGED") {
-        await createActivityLog({
-          actorUserId: userID,
-          actionType: "FILE_FLAGGED",
-          entityType: "document",
-          entityId: document.id,
-          newData: {
-            notificationType: "fileUnderReview",
-            documentTitle: file.originalname,
-            libraryId: libraryId,
-            reason: "AI detected sensitive language",
-            word: sensitivity.word,
-            classification: sensitivity.classification
-          },
-          request: req,
-          riskLevel: sensitivity.classification === "SEVERE" ? "HIGH" : "MEDIUM",
-          details: `Your file "${file.originalname}" contains sensitive content and has been submitted for admin review. Please wait for moderation.`,
-        });
-      }
-
       // Lưu tags vào DB
       // Loại bỏ các tag trùng lặp và làm sạch
       const uniqueTags = [...new Set(userTags.map(t => t.trim().toLowerCase().replace("#", "")))];
 
 
       // Gọi hàm xử lý AI (embedding và chunking)
-      const shouldKeepReviewStatus = status === "FLAGGED" || Boolean(workspaceId);
+      const shouldKeepReviewStatus = Boolean(workspaceId);
       let aiResult = { status };
       if (isDirectWorkspaceUpload) {
         // The document is already stored as PENDING. Continue extraction,
-        // moderation, chunking and embeddings without holding the upload
+        // chunking and embeddings without holding the upload
         // response open. processDocumentWithAI records controlled failure
         // states, including PENDING_RETRY.
         void processWorkspaceDocumentInBackground(

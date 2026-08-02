@@ -52,7 +52,6 @@ const ADMIN_SETTINGS_KEY = "aiStudyHubAdminSettings";
 
 function getInitialAdminSettings() {
   const defaults = {
-    moderationAlerts: true,
     securityAlerts: true,
   };
 
@@ -495,27 +494,9 @@ function AdminControlSettings({ settings, setSettings }) {
         icon="ti-shield"
         eyebrow="Administration"
         title="Admin controls"
-        description="Configure moderation workflow, security alerts and operational thresholds for your administrator account."
+        description="Configure security alerts and operational controls for your administrator account."
         badge="Admin only"
       />
-
-      <SettingsPanel
-        title="Moderation workflow"
-        description="Choose how cases requiring administrator attention are handled."
-      >
-        <div className="settings_table">
-          <SettingRow
-            title="Moderation queue alerts"
-            description="Notify you when new documents enter the moderation queue."
-          >
-            <SettingsSwitch
-              checked={settings.moderationAlerts}
-              onClick={() => toggle("moderationAlerts")}
-              label="Toggle moderation queue alerts"
-            />
-          </SettingRow>
-        </div>
-      </SettingsPanel>
 
       <SettingsPanel
         title="Security & audit"
